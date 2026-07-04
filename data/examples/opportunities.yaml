@@ -1,0 +1,31 @@
+generated_on: 2026-01-15
+
+directions:
+  - direction: "LLM 应用工程师"
+    industry: "人工智能"
+    value_chain_node: "RAG / agent 应用层"
+    competition_index: 0.5
+    role_families:
+      - role: "LLM 应用工程师"
+        seniority: "1-3年"
+        match_score: 0.8
+        competition_index: 0.55
+    skill_gaps:
+      - skill: "RAG 评测"
+        current_level: "frontier"
+        target_level: "core"
+        priority: high
+    fit: 高
+    fit_rationale: "数据工程 + RAG 组合稀缺"
+    match: 高
+    match_rationale: "四圈交集好"
+    wind: 顺风
+    wind_rationale: "应用层需求增速快"
+    risk: 可逆
+    risk_rationale: "可先副项目验证"
+    composite: A
+    opens_up:
+      - "AI 产品 tech lead"
+    costs:
+      - "纯数据工程纵深"
+    first_step: "两周内完成 RAG demo"

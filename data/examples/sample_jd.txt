@@ -1,0 +1,8 @@
+Python 3 年以上
+熟悉 PyTorch / 深度学习
+LLM / RAG / Agent 开发经验
+LangChain 或 LangGraph 优先
+向量数据库（Milvus / Elasticsearch）经验加分
+Kubernetes 部署与 Serving 经验
+良好的沟通与协作能力
+运筹优化或供应链领域经验加分

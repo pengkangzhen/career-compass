@@ -1,46 +1,49 @@
 # CLAUDE.md — 项目操作指南（Claude Code 打开本项目时自动加载）
 
-本项目是 **Career-Compass**：一个"投简历之前"的职业规划工具。当用户谈到职业规划 / 职业方向 / 求职决策 / 行业趋势时，运行 Career-Compass 工作流。
+本项目是 **Career-Compass**：职业生涯决策引擎。当用户谈到职业规划 / 职业方向 / 求职决策 / 行业趋势 / 投递反馈时，运行 Career-Compass 工作流。
+
+## 北极星
+
+自动分析**用户画像 × 产业结构 × 行业趋势 × 市场竞争**，给出**精准、个性化、可执行**的求职定位与执行闭环。系统给排序后的选项和依据，**不替用户拍板**。
 
 ## 它是什么
 
-一个**数据驱动的工作流**，由你（Claude）来驱动：
-- `src/career_compass/` —— Python CLI（用 uv 跑）。机械活：校验数据、渲染产物。命令以 `uv run career-compass <cmd>` 运行。
-- `playbooks/` —— 分析逻辑（每个阶段开始前读对应文件）。
-- `data/` —— 用户的唯一事实源（profile / constraints / narrative / signals / sectors / opportunities）。**改数据，不改代码**。
+- `src/career_compass/` —— Python CLI（`uv run career-compass <cmd>`）
+- `playbooks/` —— 分析逻辑（Agent 驱动部分）
+- `data/` —— 用户唯一事实源（gitignore）
+- `data/examples/` —— 脱敏示例
 
-## 工作流（5 阶段）
+## 工作流
 
-1. **intake**（`playbooks/1-intake.md`）—— **引导式**：和用户聊，边聊边把信息提炼写入 `data/profile.yaml`、`narrative.md`、`constraints.yaml`（用户**不用预填**），针对 `validate` 报的缺口追问，直到 ✅。可先 `scan-projects` 扫用户的项目自动取证到 `data/projects.yaml`。
-2. **scan**（`playbooks/2-scan.md`）—— `uv run career-compass scan-plan` → 联网检索 → `uv run career-compass new-signal ...` 逐条入库（**带来源+日期**）。
-3. **analyze**（`playbooks/3-analyze.md`）—— `uv run career-compass brief` → 套四层框架 → 写 `data/opportunities.yaml` → `uv run career-compass render-opportunities`。★**核心交付物**。
-4. **plan**（`playbooks/4-plan.md`）—— **可选**，用户**自己选定**一个方向后才进。`uv run career-compass render-strategy` → 填 `strategy.md`。
-5. **stress-test**（`playbooks/5-stress-test.md`）—— **可选**。pre-mortem + 设 tripwire。
+1. **intake** — 引导式画像 → profile / narrative / constraints
+2. **scan** — scan-plan → new-signal
+3. **analyze** — brief → match --write-draft → 审阅 opportunities.yaml → render-opportunities / render-pack
+4. **execute（Phase 3）** — render-execution → track 投递 → funnel → replan
+5. **plan / stress-test** — 可选，用户选定方向后
 
-## 铁律
-
-- 每条优势必须有证据；每条信号必须有来源+日期。
-- **机会矩阵是交付物**：给出**几个**可比较方向，**不要自动收敛到一个**。
-- **不替用户选方向**。4-plan 只在用户明确选定后才进。
-- **constraints 是墙**，不是建议；违反约束的方向直接剔除。
-- 改事实改 `data/`，改逻辑改 `playbooks/`。永远不要手改渲染出来的 `.md`（那是产物）。
+**编排**: `status` / `run --stage`
 
 ## 命令速查
 
 | 命令 | 作用 |
 |---|---|
-| `uv run career-compass validate` | 校验画像完整性 |
-| `uv run career-compass brief` | 聚合所有数据为分析用 brief |
-| `uv run career-compass scan-plan` | 基于画像派生检索查询 |
-| `uv run career-compass new-signal DOMAIN TOPIC FINDING SOURCE [URL]` | 追加一条外部信号 |
-| `uv run career-compass scan-projects <path>...` | 扫描指定项目目录，自动提取证据（语言/依赖/规模/成果） |
-| `uv run career-compass render-opportunities` | 渲染机会矩阵（核心交付物） |
-| `uv run career-compass render-strategy` | 渲染 strategy.md 骨架 |
+| `status` / `run [--stage]` | 阶段检测与预检 |
+| `validate` / `brief` / `scan-plan` / `new-signal` / `scan-projects` | intake + scan |
+| `match [--write-draft]` / `render-opportunities` / `render-pack` | analyze + 定位包 |
+| `render-execution` | 求职执行包（pitch/简历/投递策略） |
+| `track add/list/update/funnel` | 投递追踪 |
+| `job add/list/show/analyze/remove` | 感兴趣岗位库（收藏 JD）→ `saved_jobs.yaml` |
+| `jd-analyze <file>` | JD vs 画像缺口 |
 
-**首次使用**：`cp templates/profile.example.yaml data/profile.yaml`（constraints 同理），填好后 `uv run career-compass validate`。
+## 铁律
+
+- 优势挂证据；信号带来源+日期
+- 机会矩阵给几个方向，不自动收敛一个
+- constraints 是墙
+- 不手改渲染出来的 .md
 
 ## 当前状态
 
-`data/sectors.yaml` 是预置的 9 个热门行业参考池（非个人数据，已入库）。用户的个人数据文件（profile/narrative/constraints/opportunities/signals）被 gitignore，不入库。
+**v0.3 · Phase 1–3**。Industry Graph、Role Taxonomy、match、render-pack、render-execution、track、replan、jd-analyze 已可用。
 
-完整的 skill 规范见 `SKILL.md`（用于打包成可安装 skill）。
+文档: `docs/schema-v2.md`, `docs/matching-engine.md`, `docs/phase-3.md`, `SKILL.md`

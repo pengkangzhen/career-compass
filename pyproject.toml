@@ -1,7 +1,7 @@
 [project]
 name = "career-compass"
-version = "0.2.0"
-description = "职业规划前置工具：个人画像 × 外部趋势 → 可迭代、有证据、经得起压力测试的策略"
+version = "0.3.0"
+description = "职业生涯决策引擎：画像 × 产业趋势 × 匹配引擎 → 求职定位与执行闭环"
 requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1.6",
@@ -15,6 +15,16 @@ career-compass = "career_compass.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/career_compass"]

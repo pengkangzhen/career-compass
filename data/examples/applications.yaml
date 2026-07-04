@@ -1,0 +1,12 @@
+updated_on: 2026-07-04
+applications:
+  - id: demo-ai-co-llm-engineer-a1b2c3
+    company: "示例 AI 公司"
+    role: "LLM 应用工程师"
+    direction: "LLM 应用工程师"
+    tier: B
+    applied_on: 2026-06-15
+    channel: 官网
+    status: rejected
+    feedback: "缺少向量数据库与线上 Serving 经验"
+    notes: "示例数据 —— 用于测试 funnel / replan"

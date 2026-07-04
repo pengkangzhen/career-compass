@@ -6,6 +6,24 @@ generated_on: 2026-07-04
 
 directions:
   - direction: "LLM 应用工程师（数据工程 + RAG 组合）"
+    industry: "人工智能与大模型"
+    value_chain_node: "应用层 RAG / agent 编排（非模型训练）"
+    competition_index: 0.55
+    role_families:
+      - role: "LLM 应用工程师"
+        seniority: "1-3年"
+        match_score: 0.85
+        competition_index: 0.6
+      - role: "AI 平台工程师"
+        seniority: "2-5年"
+        match_score: 0.7
+        competition_index: 0.5
+    skill_gaps:
+      - skill: "向量检索与 RAG 评测"
+        current_level: "frontier"
+        target_level: "core"
+        priority: high
+        notes: "已有 demo，缺生产级评测与监控"
     fit: 高
     fit_rationale: "数据管道能力(核心) × 刚学的 RAG/frontier 的组合稀缺；有从乱到治的证据"
     match: 高
@@ -25,6 +43,19 @@ directions:
     first_step: "两周内用一个真实数据集做出端到端 RAG demo 并发布"
 
   - direction: "数据工程 Tech Lead（纵深路线）"
+    industry: "互联网 / 电商"
+    value_chain_node: "数据平台与质量治理"
+    competition_index: 0.45
+    role_families:
+      - role: "数据工程 Tech Lead"
+        seniority: "5-8年"
+        match_score: 0.9
+        competition_index: 0.4
+    skill_gaps:
+      - skill: "团队管理与跨部门协作"
+        current_level: "adjacent"
+        target_level: "core for TL"
+        priority: medium
     fit: 高
     fit_rationale: "现有能力直接复用，比较优势明显"
     match: 中

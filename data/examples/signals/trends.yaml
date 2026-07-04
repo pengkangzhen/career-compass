@@ -1,0 +1,6 @@
+signals:
+  - topic: "LLM 应用人才供需"
+    finding: "应用层岗位需求增速高于供给"
+    source: "Example Report 2026"
+    retrieved_on: 2026-01-10
+    confidence: medium

@@ -1,0 +1,247 @@
+# Role Taxonomy — 岗位族 × 行业图谱节点
+# typical_companies: A=冲刺 / B=主投 / C=保底（占位可替换为真实名单）
+
+role_families:
+  # --- AI / 大模型 ---
+  - id: mle_pretrain
+    industry_id: ai_llm
+    subsector_id: llm_infra
+    value_chain_node_id: pretrain_finetune
+    role: "MLE / 训练工程师"
+    typical_seniority: "1-3年 / 博士直聘"
+    required_skills:
+      - "PyTorch"
+      - "分布式训练"
+      - "Python"
+    nice_to_have:
+      - "DeepSpeed"
+      - "RLHF"
+      - "CUDA"
+    typical_companies:
+      A: ["字节 Seed", "阿里通义", "DeepSeek"]
+      B: ["商汤", "MiniMax", "智谱"]
+      C: ["中型 AI Lab", "云厂商算法组"]
+
+  - id: llm_inference_engineer
+    industry_id: ai_llm
+    subsector_id: llm_infra
+    value_chain_node_id: inference_opt
+    role: "推理优化工程师"
+    typical_seniority: "1-3年"
+    required_skills:
+      - "C++/Python"
+      - "模型量化"
+      - "Serving"
+    nice_to_have:
+      - "vLLM"
+      - "TensorRT"
+      - "Kubernetes"
+    typical_companies:
+      A: [" NVIDIA 生态伙伴", "字节", "华为昇腾"]
+      B: ["云厂商推理团队", "AI infra 创业公司"]
+      C: ["传统企业 AI 转型组"]
+
+  - id: llm_app_engineer
+    industry_id: ai_llm
+    subsector_id: llm_apps
+    value_chain_node_id: rag_agent
+    role: "LLM 应用工程师"
+    typical_seniority: "应届-3年"
+    required_skills:
+      - "Python"
+      - "RAG"
+      - "LLM"
+    nice_to_have:
+      - "LangChain"
+      - "向量数据库"
+      - "评测"
+    typical_companies:
+      A: ["字节", "阿里", "腾讯"]
+      B: ["垂直 SaaS", "AI 应用创业公司"]
+      C: ["传统企业数字化部门"]
+
+  - id: ai_pm_tech
+    industry_id: ai_llm
+    subsector_id: llm_apps
+    value_chain_node_id: ai_product
+    role: "AI 产品 / PM-Tech"
+    typical_seniority: "3-5年"
+    required_skills:
+      - "产品定义"
+      - "数据分析"
+      - "LLM"
+    nice_to_have:
+      - "A/B 测试"
+      - "用户研究"
+    typical_companies:
+      A: ["头部互联网 AI 产品线"]
+      B: ["AI 创业公司产品负责人"]
+      C: ["ToB 软件厂商 AI 模块"]
+
+  # --- OR / 供应链 ---
+  - id: or_engineer_sc
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "供应链优化工程师"
+    typical_seniority: "1-5年"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+      - "MIP"
+    nice_to_have:
+      - "Gurobi"
+      - "仿真"
+      - "Spark"
+    typical_companies:
+      A: ["京东物流", "顺丰科技", "菜鸟"]
+      B: ["制造龙头计划部", "咨询 OR 团队"]
+      C: ["物流软件商"]
+
+  - id: pricing_scientist
+    industry_id: or_supply_chain
+    subsector_id: pricing_revenue
+    value_chain_node_id: dynamic_pricing
+    role: "定价 / 收益管理科学家"
+    typical_seniority: "博士 / 3-5年"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "因果推断"
+      - "SQL"
+    typical_companies:
+      A: ["美团", "滴滴", "航司收益部"]
+      B: ["零售定价团队", "能源交易"]
+      C: ["咨询 / 外包分析"]
+
+  - id: or_ml_engineer
+    industry_id: or_supply_chain
+    subsector_id: pricing_revenue
+    value_chain_node_id: or_ml_hybrid
+    role: "OR+ML 混合工程师"
+    typical_seniority: "1-3年"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "强化学习"
+      - "PyTorch"
+    typical_companies:
+      A: ["大厂物流/广告优化", "自动驾驶规划"]
+      B: ["工业软件", "能源优化"]
+      C: ["研究院转化团队"]
+
+  # --- 机器人 ---
+  - id: robotics_perception
+    industry_id: robotics
+    subsector_id: embodied_ai
+    value_chain_node_id: manipulation_planning
+    role: "机器人感知 / 模仿学习工程师"
+    typical_seniority: "1-3年 / 博士"
+    required_skills:
+      - "ROS"
+      - "Python"
+      - "计算机视觉"
+    nice_to_have:
+      - "sim2real"
+      - "PyTorch"
+      - "C++"
+    typical_companies:
+      A: ["宇树", "Figure 生态", "大厂机器人 Lab"]
+      B: ["工业机械臂公司", "自动驾驶子公司"]
+      C: ["集成商工程部"]
+
+  - id: motion_control_engineer
+    industry_id: robotics
+    subsector_id: embodied_ai
+    value_chain_node_id: whole_body_control
+    role: "运动控制 / 规划工程师"
+    typical_seniority: "3-5年"
+    required_skills:
+      - "C++"
+      - "运动规划"
+      - "控制理论"
+    nice_to_have:
+      - "MPC"
+      - "ROS2"
+    typical_companies:
+      A: ["人形机器人整机厂", "四足机器人"]
+      B: ["工业自动化", "无人机"]
+      C: ["高校转化 startup"]
+
+  - id: mechatronics_component
+    industry_id: robotics
+    subsector_id: core_components
+    value_chain_node_id: dexterous_hand
+    role: "机电 / 灵巧手工程师"
+    typical_seniority: "3-8年"
+    required_skills:
+      - "机械设计"
+      - "嵌入式"
+      - "力控"
+    nice_to_have:
+      - "触觉传感"
+      - "SolidWorks"
+    typical_companies:
+      A: ["核心零部件龙头", "人形机器人 Tier1"]
+      B: ["减速器/伺服厂商"]
+      C: ["整机厂零部件组"]
+
+  # --- 生物医药 ---
+  - id: comp_chem_ai
+    industry_id: biopharma
+    subsector_id: drug_discovery
+    value_chain_node_id: ai_drug_design
+    role: "计算化学 / AI 制药科学家"
+    typical_seniority: "博士 / 博后"
+    required_skills:
+      - "分子建模"
+      - "Python"
+      - "机器学习"
+    nice_to_have:
+      - "PyTorch"
+      - "化学信息学"
+      - "实验设计"
+    typical_companies:
+      A: ["英矽智能", "晶泰", "头部 pharma AI"]
+      B: ["Biotech 计算平台", "CRO AI 组"]
+      C: ["高校药学院转化"]
+
+  - id: biostat_programmer
+    industry_id: biopharma
+    subsector_id: clinical_ops
+    value_chain_node_id: clinical_data
+    role: "生物统计 / SAS 程序员"
+    typical_seniority: "1-5年"
+    required_skills:
+      - "生物统计"
+      - "SAS/R"
+      - "临床试验"
+    nice_to_have:
+      - "CDISC"
+      - "监管申报"
+    typical_companies:
+      A: ["跨国 pharma", "头部 CRO"]
+      B: ["创新药 Biotech"]
+      C: ["地方 CRO"]
+
+  - id: translational_scientist
+    industry_id: biopharma
+    subsector_id: drug_discovery
+    value_chain_node_id: target_discovery
+    role: "转化医学 / 靶点科学家"
+    typical_seniority: "博士+"
+    required_skills:
+      - "分子生物学"
+      - "实验设计"
+      - "文献调研"
+    nice_to_have:
+      - "单细胞"
+      - "结构生物学"
+    typical_companies:
+      A: ["FIC Biotech", "Big Pharma RD"]
+      B: ["院校 spin-off"]
+      C: ["合同研究"]

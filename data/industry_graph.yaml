@@ -1,0 +1,133 @@
+# Industry Graph — 行业 → 子赛道 → 价值链节点
+# Phase 2 结构化产业知识；从 sectors.yaml 演进，可逐步扩展其余行业。
+# 每个 value_chain_node 标明 value_is_in（深）与 trap（浅层陷阱）。
+
+industries:
+  - id: ai_llm
+    name: "人工智能与大模型"
+    why_hot: "应用层爆发 + 基础设施投入持续加大"
+    subsectors:
+      - id: llm_infra
+        name: "大模型基础设施"
+        value_chain_nodes:
+          - id: pretrain_finetune
+            name: "预训练 / 微调 / 对齐"
+            value_is_in: "训练栈、数据飞轮、RLHF/DPO、分布式训练与显存优化"
+            trap: "只会调用开源权重跑 demo，不懂训练与数据闭环"
+          - id: inference_opt
+            name: "推理优化 / Serving"
+            value_is_in: "量化、KV cache、批调度、推理引擎（vLLM/Triton 级）"
+            trap: "只会包一层 API gateway，无性能与成本优化能力"
+          - id: data_flywheel
+            name: "数据工程 / 评测 / 标注飞轮"
+            value_is_in: "高质量语料 pipeline、评测基准、人机协同标注体系"
+            trap: "手工洗数据、无自动化与质量度量"
+
+      - id: llm_apps
+        name: "大模型应用"
+        value_chain_nodes:
+          - id: rag_agent
+            name: "RAG / Agent 应用层"
+            value_is_in: "领域知识检索、工具编排、评测与 guardrails、垂直场景落地"
+            trap: "只会调 API 做 wrapper，无领域数据与评测壁垒"
+          - id: ai_product
+            name: "AI 产品 / PM-Tech"
+            value_is_in: "需求定义、人机交互、指标闭环、与工程/算法协同"
+            trap: "纯概念 ppt、无数据指标与迭代闭环"
+
+  - id: or_supply_chain
+    name: "运筹优化 / 供应链智能化"
+    why_hot: "物流降本 + 计划排程数字化 + AI 与 OR 交叉岗位增多"
+    subsectors:
+      - id: supply_chain_planning
+        name: "供应链计划与排程"
+        value_chain_nodes:
+          - id: network_optimization
+            name: "网络规划 / 库存优化"
+            value_is_in: "MIP/随机规划、多 echelon 库存、仿真与 what-if"
+            trap: "Excel 排产 + 经验规则，无法规模化求解"
+          - id: routing_scheduling
+            name: "路径 / 排程 / 装箱"
+            value_is_in: "VRP、job shop、列生成、启发式 + 精确解混合"
+            trap: "只做可视化 dashboard，无优化内核"
+
+      - id: pricing_revenue
+        name: "定价 / 收益管理"
+        value_chain_nodes:
+          - id: dynamic_pricing
+            name: "动态定价 / 收益管理"
+            value_is_in: "需求预测 + 优化联合、因果推断、A/B 与反事实"
+            trap: "纯规则定价或黑盒 ML 无解释与约束"
+          - id: or_ml_hybrid
+            name: "OR + ML 混合工程"
+            value_is_in: "学习增强优化、预测-优化联合、可部署求解器"
+            trap: "论文模型无法工程化或违反业务硬约束"
+
+  - id: robotics
+    name: "机器人与高端装备"
+    why_hot: "具身智能 + 人形机器人量产窗口；核心零部件壁垒最深"
+    subsectors:
+      - id: embodied_ai
+        name: "具身智能 / 人形机器人"
+        value_chain_nodes:
+          - id: manipulation_planning
+            name: "操作规划 / 模仿学习"
+            value_is_in: "sim2real、灵巧操作、多模态感知-动作闭环"
+            trap: "demo 级抓取、无可靠性与泛化"
+          - id: whole_body_control
+            name: "全身控制 / 运动规划"
+            value_is_in: "MPC/WBC、实时控制、硬件在环"
+            trap: "只做仿真、未上真机验证"
+
+      - id: core_components
+        name: "核心零部件"
+        value_chain_nodes:
+          - id: dexterous_hand
+            name: "灵巧手 / 执行器"
+            value_is_in: "传动、力控、触觉、成本与可靠性工程"
+            trap: "外购集成、无自研核心件"
+          - id: reducer_sensor
+            name: "减速器 / 力矩传感器 / 感知"
+            value_is_in: "谐波/RV、六维力、多传感器融合标定"
+            trap: "本体组装厂、同质化整机"
+
+  - id: biopharma
+    name: "生物医药与创新药"
+    why_hot: "创新药出海 + ADC/CAR-T + AI 制药进入临床验证"
+    subsectors:
+      - id: drug_discovery
+        name: "药物发现"
+        value_chain_nodes:
+          - id: target_discovery
+            name: "靶点发现 / 先导化合物"
+            value_is_in: "FIC/BIC 源头创新、结构生物学、高通量筛选"
+            trap: "me-too 管线、无差异化 MOA"
+          - id: ai_drug_design
+            name: "AI 制药 / 分子生成"
+            value_is_in: "生成模型 + 实验闭环、ADMET 预测、临床前验证"
+            trap: "纯 in silico、无实验与 IND 路径"
+
+      - id: clinical_ops
+        name: "临床与商业化"
+        value_chain_nodes:
+          - id: clinical_data
+            name: "临床数据 / 真实世界证据"
+            value_is_in: "EDC、统计编程、RWE、注册策略"
+            trap: "外包 CRO 无核心统计与医学写作能力"
+          - id: biotech_platform
+            name: "平台型 Biotech"
+            value_is_in: "多管线平台、出海 license-out、现金流转折管理"
+            trap: "单点资产、现金流断裂风险"
+
+  # 可扩展占位 —— 其余 sectors.yaml 行业待 Phase 2+ 深化
+  - id: semicon
+    name: "集成电路与半导体"
+    why_hot: "国产替代长期国策"
+    subsectors:
+      - id: chip_design
+        name: "芯片设计"
+        value_chain_nodes:
+          - id: rtl_dv
+            name: "RTL / 验证"
+            value_is_in: "架构、低功耗、形式验证、流片经验"
+            trap: "只会发论文不能 tape-out"

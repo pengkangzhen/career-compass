@@ -17,6 +17,13 @@ data/opportunities.yaml
 data/opportunities.md
 data/strategy.md
 data/projects.yaml
+data/applications.yaml
+data/saved_jobs.yaml
+data/jds/
+data/job_pack.md
+data/execution_pack.md
+data/opportunities.draft.yaml
+data/opportunities.revised.yaml
 data/signals/*
 !data/signals/.gitkeep
 

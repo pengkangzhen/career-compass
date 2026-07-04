@@ -1,0 +1,43 @@
+# 示例画像 —— 用于测试与文档，非个人数据
+
+name: "Example User"
+current_role: "数据工程师"
+
+education:
+  - degree: "硕士"
+    major: "计算机科学"
+    school: "Example University"
+    year: 2021
+
+experience:
+  - company: "Example Corp"
+    role: "数据工程师"
+    period: "2021.07-2024.06"
+    scope: "离线特征管道与数据质量"
+    quantified_outcomes:
+      - "特征延迟从 6h 降到 1h"
+
+skills:
+  core:
+    - "Python / SQL"
+    - "Spark"
+  adjacent:
+    - "Airflow"
+  frontier:
+    - "LLM / RAG"
+
+strength_evidence:
+  - claim: "能把混乱的数据流程规范化"
+    proof: "主导重写特征管道，事故清零"
+  - claim: "跨界学习快"
+    proof: "两个月内完成 RAG demo"
+
+preferences:
+  energized_by:
+    - "系统化工作"
+  drained_by:
+    - "重复运维"
+  values_ranked:
+    - "learning"
+    - "impact"
+    - "autonomy"

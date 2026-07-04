@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 from enum import Enum
 from pathlib import Path
@@ -18,10 +19,64 @@ from pydantic import BaseModel, Field, HttpUrl, ValidationError
 __all__ = [
     "RiskAppetite", "Education", "Experience", "StrengthEvidence",
     "Preferences", "Skills", "Profile", "Constraints", "Signal",
-    "Opportunity", "OpportunityMatrix", "Sector",
-    "ValidationError", "load_profile", "load_constraints", "load_signals",
+    "RoleFamily", "SkillGap", "Opportunity", "OpportunityMatrix", "Sector",
+    "ValueChainNode", "Subsector", "Industry", "IndustryGraph",
+    "TaxonomyRoleFamily", "RoleTaxonomy",
+    "ValidationError", "ValidationIssue", "ValidationResult",
+    "PLACEHOLDER_PATTERNS", "is_placeholder",
+    "validate_constraints", "validate_narrative", "validate_profile_text_fields",
+    "signal_staleness_days", "count_signals",
+    "load_profile", "load_constraints", "load_signals",
     "load_opportunities", "save_opportunities", "load_sectors",
+    "load_industry_graph", "load_role_taxonomy",
+    "ApplicationStatus", "ApplicationTier", "Application", "ApplicationsFile",
+    "load_applications", "save_applications",
+    "SavedJobStatus", "SavedJob", "SavedJobsFile",
+    "load_saved_jobs", "save_saved_jobs",
 ]
+
+
+# ---------- 占位符检测（intake 闸门）----------
+
+PLACEHOLDER_PATTERNS: tuple[str, ...] = (
+    "(待填)", "（待填）", "tbd", "todo", "待补", "（待补）", "探索中", "待明确", "（待明确）",
+    "n/a", "待验证", "示例", "请替换", "请填写",
+)
+
+
+def is_placeholder(text: str | None) -> bool:
+    """文本为空或含占位标记则视为未填实。"""
+    if text is None:
+        return True
+    stripped = text.strip()
+    if not stripped:
+        return True
+    lower = stripped.lower()
+    for pat in PLACEHOLDER_PATTERNS:
+        if pat.lower() in lower:
+            return True
+    return False
+
+
+class ValidationIssue(BaseModel):
+    level: str  # "error" | "warning"
+    field: str
+    message: str
+
+
+class ValidationResult(BaseModel):
+    errors: list[ValidationIssue] = Field(default_factory=list)
+    warnings: list[ValidationIssue] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+    def merge(self, other: ValidationResult) -> ValidationResult:
+        return ValidationResult(
+            errors=self.errors + other.errors,
+            warnings=self.warnings + other.warnings,
+        )
 
 
 class RiskAppetite(str, Enum):
@@ -79,6 +134,8 @@ class Profile(BaseModel):
             missing.append("education 或 experience 至少要有一个")
         if not self.skills.core:
             missing.append("skills.core（吃饭的本事）")
+        elif any(is_placeholder(s) for s in self.skills.core):
+            missing.append("skills.core 含占位内容，请填真实技能")
         if not self.strength_evidence:
             missing.append("strength_evidence（每条优势要挂证据）")
         if not self.preferences.values_ranked:
@@ -86,11 +143,33 @@ class Profile(BaseModel):
         weak = [
             s.claim
             for s in self.strength_evidence
-            if not s.proof.strip() or s.proof.strip().lower() in {"n/a", "tbd", "todo", "待补"}
+            if is_placeholder(s.proof) or is_placeholder(s.claim)
         ]
         if weak:
-            missing.append(f"strength_evidence 缺证据: {weak}")
+            missing.append(f"strength_evidence 缺证据或占位: {weak}")
+        if self.name and is_placeholder(self.name):
+            missing.append("name 仍为占位，请替换为真实姓名或标识")
+        if self.current_role and is_placeholder(self.current_role):
+            missing.append("current_role 仍为占位")
         return missing
+
+
+def validate_profile_text_fields(profile: Profile) -> ValidationResult:
+    """额外文本字段校验（warnings）。"""
+    warnings: list[ValidationIssue] = []
+    for exp in profile.experience:
+        if is_placeholder(exp.company) or is_placeholder(exp.scope):
+            warnings.append(ValidationIssue(
+                level="warning", field="experience",
+                message=f"经历 {exp.role!r} 的公司/职责含占位内容",
+            ))
+    for edu in profile.education:
+        if is_placeholder(edu.school):
+            warnings.append(ValidationIssue(
+                level="warning", field="education",
+                message=f"学历 {edu.degree!r} 的学校含占位内容",
+            ))
+    return ValidationResult(warnings=warnings)
 
 
 class Constraints(BaseModel):
@@ -104,6 +183,76 @@ class Constraints(BaseModel):
     notes: str = ""                    # 其他硬约束的补充说明
 
 
+def validate_constraints(constraints: Constraints) -> ValidationResult:
+    """约束文件语义校验。"""
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+
+    if not constraints.geo:
+        warnings.append(ValidationIssue(
+            level="warning", field="geo",
+            message="geo 为空 —— 分析阶段无法过滤地理约束",
+        ))
+    elif any(is_placeholder(g) for g in constraints.geo):
+        warnings.append(ValidationIssue(
+            level="warning", field="geo",
+            message="geo 含占位内容，请填真实可接受地点",
+        ))
+
+    if constraints.family and is_placeholder(constraints.family):
+        warnings.append(ValidationIssue(
+            level="warning", field="family",
+            message="family 仍为占位",
+        ))
+
+    if constraints.financial_runway_months == 0:
+        warnings.append(ValidationIssue(
+            level="warning", field="financial_runway_months",
+            message="financial_runway_months=0 —— 建议填真实财务缓冲（月）",
+        ))
+
+    return ValidationResult(errors=errors, warnings=warnings)
+
+
+# narrative.md 期望的关键章节（intake 引导用）
+NARRATIVE_SECTIONS: tuple[str, ...] = ("职业故事", "我想要的", "红线")
+
+
+def validate_narrative(text: str) -> ValidationResult:
+    """narrative.md 章节与占位校验。"""
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+
+    if not text.strip():
+        errors.append(ValidationIssue(
+            level="error", field="narrative.md",
+            message="文件为空",
+        ))
+        return ValidationResult(errors=errors, warnings=warnings)
+
+    for section in NARRATIVE_SECTIONS:
+        pattern = rf"##\s*{re.escape(section)}"
+        match = re.search(pattern, text)
+        if not match:
+            warnings.append(ValidationIssue(
+                level="warning", field="narrative.md",
+                message=f"缺少章节「{section}」",
+            ))
+            continue
+        # 取该章节到下一 ## 之间的内容
+        start = match.end()
+        next_h = re.search(r"\n##\s", text[start:])
+        body = text[start: start + next_h.start()] if next_h else text[start:]
+        body = re.sub(r"^>.*$", "", body, flags=re.MULTILINE).strip()
+        if not body or is_placeholder(body):
+            warnings.append(ValidationIssue(
+                level="warning", field="narrative.md",
+                message=f"章节「{section}」仍为占位或为空",
+            ))
+
+    return ValidationResult(errors=errors, warnings=warnings)
+
+
 class Signal(BaseModel):
     topic: str
     finding: str
@@ -113,7 +262,44 @@ class Signal(BaseModel):
     confidence: str = "medium"
 
 
+def signal_staleness_days(signal: Signal, max_age_days: int = 90) -> int:
+    """信号距今天数；超过 max_age_days 视为 stale（返回正数差值）。"""
+    return (date.today() - signal.retrieved_on).days
+
+
+def is_signal_stale(signal: Signal, max_age_days: int = 90) -> bool:
+    return signal_staleness_days(signal, max_age_days) > max_age_days
+
+
+def count_signals(signals_dir: Path) -> int:
+    """统计 signals/ 下所有 yaml 中的信号条数。"""
+    total = 0
+    if not signals_dir.exists():
+        return 0
+    for p in signals_dir.glob("*.yaml"):
+        raw = _load_yaml(p)
+        total += len(raw.get("signals", []))
+    return total
+
+
 # ---------- 机会矩阵（核心交付物）----------
+
+class RoleFamily(BaseModel):
+    """Phase 2：岗位族推荐（结构化）。"""
+    role: str
+    seniority: str = ""           # 如 "1-3年" / "博士直聘"
+    match_score: Optional[float] = Field(default=None, ge=0, le=1)
+    competition_index: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class SkillGap(BaseModel):
+    """Phase 2：技能缺口。"""
+    skill: str
+    current_level: str = ""       # 如 "adjacent" / "frontier"
+    target_level: str = ""        # 如 "core for target role"
+    priority: str = "medium"      # high / medium / low
+    notes: str = ""
+
 
 class Opportunity(BaseModel):
     direction: str
@@ -129,6 +315,12 @@ class Opportunity(BaseModel):
     opens_up: list[str] = Field(default_factory=list)
     costs: list[str] = Field(default_factory=list)
     first_step: str = ""
+    # Phase 2 可选字段（Schema 2.0，向后兼容）
+    industry: Optional[str] = None
+    value_chain_node: Optional[str] = None
+    role_families: list[RoleFamily] = Field(default_factory=list)
+    skill_gaps: list[SkillGap] = Field(default_factory=list)
+    competition_index: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class OpportunityMatrix(BaseModel):
@@ -196,6 +388,75 @@ def load_sectors(path: Path) -> list[Sector]:
     return [Sector.model_validate(s) for s in data.get("sectors", [])]
 
 
+# ---------- Industry Graph + Role Taxonomy（Phase 2）----------
+
+class ValueChainNode(BaseModel):
+    id: str
+    name: str
+    value_is_in: str = ""
+    trap: str = ""
+
+
+class Subsector(BaseModel):
+    id: str
+    name: str
+    value_chain_nodes: list[ValueChainNode] = Field(default_factory=list)
+
+
+class Industry(BaseModel):
+    id: str
+    name: str
+    why_hot: str = ""
+    subsectors: list[Subsector] = Field(default_factory=list)
+
+
+class IndustryGraph(BaseModel):
+    industries: list[Industry] = Field(default_factory=list)
+
+    def find_node(self, industry_id: str, subsector_id: str, node_id: str) -> ValueChainNode | None:
+        for ind in self.industries:
+            if ind.id != industry_id:
+                continue
+            for sub in ind.subsectors:
+                if sub.id != subsector_id:
+                    continue
+                for node in sub.value_chain_nodes:
+                    if node.id == node_id:
+                        return node
+        return None
+
+    def industry_name(self, industry_id: str) -> str:
+        for ind in self.industries:
+            if ind.id == industry_id:
+                return ind.name
+        return industry_id
+
+
+class TaxonomyRoleFamily(BaseModel):
+    """岗位族定义（taxonomy 层，区别于 Opportunity 内的 RoleFamily 评分快照）。"""
+    id: str
+    industry_id: str
+    subsector_id: str
+    value_chain_node_id: str
+    role: str
+    typical_seniority: str = ""
+    required_skills: list[str] = Field(default_factory=list)
+    nice_to_have: list[str] = Field(default_factory=list)
+    typical_companies: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class RoleTaxonomy(BaseModel):
+    role_families: list[TaxonomyRoleFamily] = Field(default_factory=list)
+
+
+def load_industry_graph(path: Path) -> IndustryGraph:
+    return IndustryGraph.model_validate(_load_yaml(path))
+
+
+def load_role_taxonomy(path: Path) -> RoleTaxonomy:
+    return RoleTaxonomy.model_validate(_load_yaml(path))
+
+
 # ---------- 项目证据（scan-projects 自动 harvest）----------
 
 class Scale(BaseModel):
@@ -230,5 +491,91 @@ def load_projects(path: Path) -> ProjectsFile:
 def save_projects(path: Path, projects: ProjectsFile) -> None:
     path.write_text(
         yaml.safe_dump(projects.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+# ---------- 投递追踪（Phase 3）----------
+
+class ApplicationStatus(str, Enum):
+    applied = "applied"
+    phone = "phone"
+    onsite = "onsite"
+    offer = "offer"
+    rejected = "rejected"
+    ghosted = "ghosted"
+    withdrawn = "withdrawn"
+
+
+class ApplicationTier(str, Enum):
+    A = "A"
+    B = "B"
+    C = "C"
+
+
+class Application(BaseModel):
+    id: str
+    company: str
+    role: str
+    direction: str = ""           # 对应机会矩阵 direction
+    tier: ApplicationTier = ApplicationTier.B
+    applied_on: date
+    channel: str = ""             # 内推 / 官网 / 猎头
+    status: ApplicationStatus = ApplicationStatus.applied
+    feedback: str = ""
+    notes: str = ""
+
+
+class ApplicationsFile(BaseModel):
+    updated_on: date
+    applications: list[Application] = Field(default_factory=list)
+
+
+def load_applications(path: Path) -> ApplicationsFile:
+    return ApplicationsFile.model_validate(_load_yaml(path))
+
+
+def save_applications(path: Path, data: ApplicationsFile) -> None:
+    path.write_text(
+        yaml.safe_dump(data.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+# ---------- 感兴趣岗位库（收藏 JD）----------
+
+class SavedJobStatus(str, Enum):
+    interested = "interested"       # 刚收藏
+    researching = "researching"     # 调研中
+    ready_to_apply = "ready"        # 准备投递
+    applied = "applied"             # 已转 track 投递
+    archived = "archived"
+
+
+class SavedJob(BaseModel):
+    id: str
+    company: str
+    role: str
+    description: str = ""         # 完整 JD 文本
+    location: str = ""
+    source: str = "招聘软件"       # Boss/猎聘/官网/内推链接
+    saved_on: date
+    status: SavedJobStatus = SavedJobStatus.interested
+    linked_direction: str = ""    # 关联机会矩阵 direction
+    notes: str = ""               # 用户备注（如「暂无 CCF-A」）
+
+
+class SavedJobsFile(BaseModel):
+    updated_on: date
+    jobs: list[SavedJob] = Field(default_factory=list)
+
+
+def load_saved_jobs(path: Path) -> SavedJobsFile:
+    return SavedJobsFile.model_validate(_load_yaml(path))
+
+
+def save_saved_jobs(path: Path, data: SavedJobsFile) -> None:
+    path.write_text(
+        yaml.safe_dump(data.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )

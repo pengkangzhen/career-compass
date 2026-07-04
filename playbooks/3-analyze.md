@@ -8,6 +8,15 @@
 ```bash
 uv run career-compass brief
 ```
+
+可选 —— 用匹配引擎生成**机器初稿**（Phase 2）：
+
+```bash
+uv run career-compass match --write-draft   # → data/opportunities.draft.yaml
+```
+
+审阅 draft 后复制/修订为 `data/opportunities.yaml`，或从零手写。match 产出含 industry / 岗位族 / skill_gaps / competition_index，但 **fit/match/wind 叙事仍需你按四层框架补全**。
+
 brief 是你唯一的分析依据。brief 里没有的东西，不要凭空用（不要把模型先验当信号）。
 
 ## 第一步：列候选方向
