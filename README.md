@@ -16,7 +16,7 @@ Not “ask AI what job fits you,” but turn career choice into a **structured, 
 | **Which role?** | Role-family matching, seniority band, skill gaps, company tiers, geo strategy |
 | **Why would they hire me?** | Evidence-linked profile: projects/papers → verifiable strengths vs JDs |
 | **Is timing still OK?** | Trends + personal timeline (graduation, age, visa) |
-| **What if I choose wrong?** | Reversibility, stress-tests, tripwires — try before you commit |
+| **What if I choose wrong?** | Low trial cost, stress-tests, tripwires — try before you commit |
 | **No replies after applying?** | Application funnel → replan → revise opportunity matrix |
 
 **Core principle**: the system returns **ranked options with rationale**; it does **not** pick for you. Values, family/geo constraints, and final direction stay with the user.

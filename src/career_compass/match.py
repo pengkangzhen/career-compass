@@ -311,7 +311,7 @@ def _composite_from_scores(
         score += 0.1
     elif wind == "逆风":
         score -= 0.15
-    if risk == "可逆":
+    if risk in ("低", "可逆"):
         score += 0.05
     if competition == "high":
         score -= 0.12
@@ -365,7 +365,7 @@ def generate_candidate_opportunities(
 
         fit = _level_label(match_score)
         wind, wind_rationale = _wind_from_signals(industry_name, signals)
-        risk = "可逆" if constraints.reversibility_bias == "high" else "commit"
+        risk = "低" if constraints.reversibility_bias == "high" else "高"
         composite = _composite_from_scores(
             match_score, fit, wind, risk, comp_label, shallow,
         )
@@ -397,7 +397,7 @@ def generate_candidate_opportunities(
             wind=wind,
             wind_rationale=wind_rationale,
             risk=risk,
-            risk_rationale="结合 constraints.reversibility_bias 默认",
+            risk_rationale="结合 constraints.reversibility_bias（低试错成本偏好）默认",
             composite=composite,
             opens_up=[f"{industry_name} · {node_name} 纵深"],
             costs=costs,

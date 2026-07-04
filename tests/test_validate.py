@@ -121,3 +121,4 @@ def test_opportunity_matrix_migrates_legacy_directions():
     )
     assert len(matrix.primary) == 1
     assert matrix.primary[0].direction == "测试方向"
+    assert matrix.primary[0].risk == "低"  # legacy 可逆 → 低

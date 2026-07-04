@@ -30,7 +30,7 @@ directions:
     match_rationale: "四圈交集好：喜欢系统化、有技术深度、市场需要、薪酬上行；期权价值高"
     wind: 顺风
     wind_rationale: "signals/trends 显示 LLM 应用层需求增速快于供给"
-    risk: 可逆
+    risk: 低
     risk_rationale: "第一步是副项目/学习，不辞职，符合 reversibility_bias=high"
     composite: A
     opens_up:
@@ -62,8 +62,8 @@ directions:
     match_rationale: "擅长且稳定，但 energized_by 里的'新东西/学习'满足度低；期权价值中等"
     wind: 弱顺风
     wind_rationale: "需求稳但增速放缓，供给充足，薪酬平稳"
-    risk: 可逆
-    risk_rationale: "内部晋升/平跳皆可逆"
+    risk: 低
+    risk_rationale: "内部晋升/平跳试错成本低"
     composite: B
     opens_up:
       - "数据总监"

@@ -11,6 +11,6 @@ financial_runway_months: 9
 # low=只接受低风险路径 | medium=可承担有对冲的风险 | high=愿意 all-in 某方向
 risk_appetite: medium
 
-# high=偏好"先试可逆的小步、验证后再加大投入"
-# low =愿意直接 commit 到一条长期路径
+# high=偏好低试错成本（先试小步、验证后再加大投入）
+# low =愿意直接 all-in 到一条长期路径
 reversibility_bias: high

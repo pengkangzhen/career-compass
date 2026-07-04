@@ -26,7 +26,7 @@ primary:
     match_rationale: "四圈交集好"
     wind: 顺风
     wind_rationale: "应用层需求增速快"
-    risk: 可逆
+    risk: 低
     risk_rationale: "可先副项目验证"
     composite: A
     opens_up:
@@ -43,7 +43,7 @@ side:
     match_rationale: "期权：可见度、内推线索；非主现金流"
     wind: 顺风
     wind_rationale: "LLM 应用内容需求大"
-    risk: 可逆
+    risk: 低
     risk_rationale: "每周几小时即可试"
     composite: B
     synergizes_with:

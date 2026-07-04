@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from pydantic import BaseModel, Field, HttpUrl, ValidationError
+from pydantic import BaseModel, Field, HttpUrl, ValidationError, field_validator
 
 __all__ = [
     "RiskAppetite", "EducationLevel", "EducationStatus", "Education", "Experience", "StrengthEvidence",
@@ -301,7 +301,7 @@ class Constraints(BaseModel):
     family: Optional[str] = None
     financial_runway_months: int = Field(default=0, ge=0)
     risk_appetite: RiskAppetite = RiskAppetite.medium
-    reversibility_bias: str = "high"  # high=偏好可逆决策, low=愿意 all-in
+    reversibility_bias: str = "high"  # high=偏好低试错成本, low=愿意 all-in
     age: Optional[int] = None          # 年龄 —— 国内学术路线对年龄敏感（青基/博新年龄线）
     notes: str = ""                    # 其他硬约束的补充说明
 
@@ -424,15 +424,32 @@ class SkillGap(BaseModel):
     notes: str = ""
 
 
+# L4 试错成本：低 = 走错第一步代价小；高 = 一次性投入 / 难退出
+_TRIAL_COST_ALIASES: dict[str, str] = {
+    "低": "低",
+    "高": "高",
+    "可逆": "低",      # legacy
+    "commit": "高",   # legacy
+}
+
+
+def normalize_trial_cost(value: str) -> str:
+    """Map legacy 可逆/commit labels to 低/高."""
+    key = value.strip()
+    if key in _TRIAL_COST_ALIASES:
+        return _TRIAL_COST_ALIASES[key]
+    return key
+
+
 class Opportunity(BaseModel):
     direction: str
     fit: str                             # 高/中/低 — L1 比较优势
     fit_rationale: str
-    match: str                           # 高/中/低 — L2 Ikigai+期权
+    match: str                           # 高/中/低 — L2 Ikigai 四圈 + 期权
     match_rationale: str
     wind: str                            # 顺风/弱顺风/逆风 — L3
     wind_rationale: str
-    risk: str                            # 可逆/commit — L4
+    risk: str                            # 低/高 — L4 试错成本（legacy: 可逆/commit）
     risk_rationale: str
     composite: str = "C"                 # A-F
     opens_up: list[str] = Field(default_factory=list)
@@ -445,6 +462,13 @@ class Opportunity(BaseModel):
     role_families: list[RoleFamily] = Field(default_factory=list)
     skill_gaps: list[SkillGap] = Field(default_factory=list)
     competition_index: Optional[float] = Field(default=None, ge=0, le=1)
+
+    @field_validator("risk", mode="before")
+    @classmethod
+    def _normalize_trial_cost(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_trial_cost(value)
+        return value
 
 
 class OpportunityMatrix(BaseModel):

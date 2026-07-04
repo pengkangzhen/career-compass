@@ -188,9 +188,9 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 | 维度 | 问什么 | 常见评级 |
 |------|--------|----------|
 | **比较优势** | 在这个方向上，什么是别人难以复制的？ | 高 / 中 / 低 |
-| **匹配与期权** | 热爱 × 擅长 × 被需要 × 有回报；以及后续选项 | 高 / 中 / 低 |
+| **Ikigai 四圈** | 热爱 × 擅长 × 被需要 × 有回报（期权见 `opens_up`） | 高 / 中 / 低 |
 | **顺风/逆风** | 外部市场：需求在涨还是饱和内卷？ | 顺风 / 弱顺风 / 中 / 逆风 |
-| **可逆性** | 选错了能否低成本退出？ | 可逆 / commit |
+| **试错成本** | 走错第一步要付出多少？ | 低 / 高 |
 
 **综合评级 A–F**：A=强烈推荐 · B=值得认真比较 · C=备选 · D=勉强
 
@@ -202,7 +202,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 主业总览
 
-| # | 方向 | 比较优势 | 匹配与期权 | 顺风/逆风 | 可逆性 | 综合 |
+| # | 方向 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
 |---|------|----------|------------|-----------|--------|------|
 {% for o in ranked_primary -%}
 | {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} |
@@ -212,7 +212,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 主业对比摘要
 
-| 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 可逆第一步 |
+| 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
 |------|------|-------------------|-------------|-----------|
 {% for o in ranked_primary -%}
 | {{ o.direction }} | {{ o.composite }} | {{ o.fit_rationale[:60] }}{% if o.fit_rationale|length > 60 %}…{% endif %} | {{ o.costs[0] if o.costs else "—" }} | {{ o.first_step[:50] if o.first_step else "—" }}{% if o.first_step and o.first_step|length > 50 %}…{% endif %} |
@@ -256,9 +256,9 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 | 维度 | 评级 | 依据 |
 |------|------|------|
 | 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
-| 匹配与期权 | {{ o.match }} | {{ o.match_rationale }} |
+| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
 | 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
-| 可逆性 | {{ o.risk }} | {{ o.risk_rationale }} |
+| 试错成本 | {{ o.risk }} | {{ o.risk_rationale }} |
 
 **打开的选项**
 
@@ -276,7 +276,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 - (待填)
 {% endfor %}
 
-**可逆的第一步**：{{ o.first_step or "(待填)" }}
+**试错第一步**：{{ o.first_step or "(待填)" }}
 
 ---
 {% endfor %}
@@ -287,7 +287,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 副业总览
 
-| # | 方向 | 比较优势 | 匹配与期权 | 顺风/逆风 | 可逆性 | 综合 | 协同主业 |
+| # | 方向 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 | 协同主业 |
 |---|------|----------|------------|-----------|--------|------|----------|
 {% for o in ranked_side -%}
 | {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} | {{ o.synergizes_with|join("；") if o.synergizes_with else "—" }} |
@@ -306,9 +306,9 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 | 维度 | 评级 | 依据 |
 |------|------|------|
 | 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
-| 匹配与期权 | {{ o.match }} | {{ o.match_rationale }} |
+| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
 | 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
-| 可逆性 | {{ o.risk }} | {{ o.risk_rationale }} |
+| 试错成本 | {{ o.risk }} | {{ o.risk_rationale }} |
 
 **打开的选项**
 
@@ -326,7 +326,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 - (待填)
 {% endfor %}
 
-**可逆的第一步**：{{ o.first_step or "(待填)" }}
+**试错第一步**：{{ o.first_step or "(待填)" }}
 
 ---
 {% endfor %}

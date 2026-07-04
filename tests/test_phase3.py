@@ -83,7 +83,7 @@ def test_apply_replan_downgrade():
             Opportunity(
                 direction="LLM 应用工程师",
                 fit="高", fit_rationale="x", match="高", match_rationale="x",
-                wind="顺风", wind_rationale="x", risk="可逆", risk_rationale="x",
+                wind="顺风", wind_rationale="x", risk="低", risk_rationale="x",
                 composite="A",
             ),
         ],

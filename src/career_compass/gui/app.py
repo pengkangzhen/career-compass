@@ -275,7 +275,7 @@ def _load_jobs_html(data_dir: Path) -> str:
 def _matrix_table_html(opps: list, *, title: str, show_synergy: bool = False) -> str:
     if not opps:
         return f"<h3>{_esc(title)}</h3><p class='empty'>暂无方向</p>"
-    headers = ["#", "方向", "比较优势", "匹配", "顺风", "可逆", "综合"]
+    headers = ["#", "方向", "比较优势", "Ikigai", "顺风", "试错成本", "综合"]
     if show_synergy:
         headers.append("协同主业")
     rows = [f"<h3>{_esc(title)}</h3><table><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr>"]
