@@ -9,6 +9,7 @@ from jinja2 import Template
 from .schema import (
     load_constraints,
     load_opportunities,
+    load_projects,
     load_profile,
     load_sectors,
     load_signals,
@@ -21,12 +22,14 @@ def brief(
     narrative_path: Path,
     signals_dir: Path,
     sectors_path: Path,
+    projects_path: Path,
 ) -> str:
     """聚合所有数据文件为一份分析用 brief。"""
     profile = load_profile(profile_path)
     constraints = load_constraints(constraints_path)
     signals = load_signals(signals_dir)
     sectors = load_sectors(sectors_path)
+    projects = load_projects(projects_path).projects if projects_path.exists() else []
     narrative = narrative_path.read_text(encoding="utf-8") if narrative_path.exists() else "(narrative.md 尚未填写)"
 
     lines: list[str] = ["# Career-Compass Brief\n"]
@@ -59,6 +62,29 @@ def brief(
                 lines.append(f"  - 与你的交叉: {s.fit_notes}")
     else:
         lines.append("\n(尚无目标行业池 —— 把调研的赛道写进 data/sectors.yaml)")
+
+    lines.append("\n## Projects（scan-projects 自动采集的证据）")
+    if projects:
+        for p in projects:
+            head = f"**{p.name}** — {p.description}" if p.description else f"**{p.name}**"
+            lines.append(f"\n- {head}")
+            if p.inferred_signals:
+                lines.append(f"  - 信号: {', '.join(p.inferred_signals)}")
+            if p.key_dependencies:
+                lines.append(f"  - 关键依赖: {', '.join(p.key_dependencies)}")
+            lang = ", ".join(f"{k}({v})" for k, v in list(p.languages.items())[:4])
+            if lang:
+                lines.append(f"  - 语言: {lang}")
+            bits = [f"{p.scale.files} files"]
+            if p.scale.commits is not None:
+                bits.append(f"{p.scale.commits} commits")
+            if p.scale.has_tests:
+                bits.append("有测试")
+            if p.artifacts:
+                bits.append("·".join(p.artifacts))
+            lines.append(f"  - 规模/成果: {' · '.join(bits)}")
+    else:
+        lines.append("\n(尚无项目证据 —— 跑 `uv run career-compass scan-projects <dir...>` 采集)")
 
     lines.append("\n## External Signals（带来源与日期）")
     if signals:

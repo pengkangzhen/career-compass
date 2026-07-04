@@ -11,7 +11,7 @@
 
 ## 工作流（5 阶段）
 
-1. **intake**（`playbooks/1-intake.md`）—— **引导式**：和用户聊，边聊边把信息提炼写入 `data/profile.yaml`、`narrative.md`、`constraints.yaml`（用户**不用预填**），针对 `validate` 报的缺口追问，直到 ✅。
+1. **intake**（`playbooks/1-intake.md`）—— **引导式**：和用户聊，边聊边把信息提炼写入 `data/profile.yaml`、`narrative.md`、`constraints.yaml`（用户**不用预填**），针对 `validate` 报的缺口追问，直到 ✅。可先 `scan-projects` 扫用户的项目自动取证到 `data/projects.yaml`。
 2. **scan**（`playbooks/2-scan.md`）—— `uv run career-compass scan-plan` → 联网检索 → `uv run career-compass new-signal ...` 逐条入库（**带来源+日期**）。
 3. **analyze**（`playbooks/3-analyze.md`）—— `uv run career-compass brief` → 套四层框架 → 写 `data/opportunities.yaml` → `uv run career-compass render-opportunities`。★**核心交付物**。
 4. **plan**（`playbooks/4-plan.md`）—— **可选**，用户**自己选定**一个方向后才进。`uv run career-compass render-strategy` → 填 `strategy.md`。
@@ -33,6 +33,7 @@
 | `uv run career-compass brief` | 聚合所有数据为分析用 brief |
 | `uv run career-compass scan-plan` | 基于画像派生检索查询 |
 | `uv run career-compass new-signal DOMAIN TOPIC FINDING SOURCE [URL]` | 追加一条外部信号 |
+| `uv run career-compass scan-projects <path>...` | 扫描指定项目目录，自动提取证据（语言/依赖/规模/成果） |
 | `uv run career-compass render-opportunities` | 渲染机会矩阵（核心交付物） |
 | `uv run career-compass render-strategy` | 渲染 strategy.md 骨架 |
 

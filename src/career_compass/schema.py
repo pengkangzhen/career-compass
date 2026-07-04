@@ -194,3 +194,41 @@ def save_opportunities(path: Path, matrix: OpportunityMatrix) -> None:
 def load_sectors(path: Path) -> list[Sector]:
     data = _load_yaml(path)
     return [Sector.model_validate(s) for s in data.get("sectors", [])]
+
+
+# ---------- 项目证据（scan-projects 自动 harvest）----------
+
+class Scale(BaseModel):
+    files: int = 0
+    commits: Optional[int] = None
+    has_tests: bool = False
+
+
+class ProjectEvidence(BaseModel):
+    path: str
+    name: str
+    description: str = ""
+    is_git: bool = False
+    last_commit: Optional[date] = None
+    languages: dict[str, int] = Field(default_factory=dict)   # 语言 -> 文件数
+    dependency_count: int = 0
+    key_dependencies: list[str] = Field(default_factory=list)  # 命中信号表的依赖名
+    scale: Scale = Field(default_factory=Scale)
+    artifacts: list[str] = Field(default_factory=list)         # paper/ docs/ results/ LaTeX 等
+    inferred_signals: list[str] = Field(default_factory=list)  # 推断的技能标签
+
+
+class ProjectsFile(BaseModel):
+    scanned_on: date
+    projects: list[ProjectEvidence] = Field(default_factory=list)
+
+
+def load_projects(path: Path) -> ProjectsFile:
+    return ProjectsFile.model_validate(_load_yaml(path))
+
+
+def save_projects(path: Path, projects: ProjectsFile) -> None:
+    path.write_text(
+        yaml.safe_dump(projects.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )

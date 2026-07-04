@@ -16,6 +16,7 @@ data/constraints.yaml
 data/opportunities.yaml
 data/opportunities.md
 data/strategy.md
+data/projects.yaml
 data/signals/*
 !data/signals/.gitkeep
 

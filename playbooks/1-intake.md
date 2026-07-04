@@ -23,6 +23,16 @@
 
 profile.yaml 装不下的叙述：转折故事、为什么离开上一段、最自豪/最讨厌、3 年后想要的生活、红线。**同样由你从聊天里提炼写入**，不是让用户写作文。
 
+## 可选：自动采集项目证据
+
+聊天前或聊天中，可跑一次（**用户点名目录，opt-in**）：
+
+```bash
+uv run career-compass scan-projects ~/code/projectA ~/code/projectB
+```
+
+自动提取每个项目的语言 / 关键依赖 / 规模 / 论文成果（`paper/`、`.tex`）→ 写入 `data/projects.yaml`。这些是 `strength_evidence` 的硬证据来源（真实代码 > 自我报告），3-analyze 时会被 `brief` 带入。**只扫用户点名的目录，不扫整盘。**
+
 ## 完成判据
 
 ```bash

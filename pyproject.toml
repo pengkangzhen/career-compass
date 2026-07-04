@@ -1,6 +1,6 @@
 [project]
 name = "career-compass"
-version = "0.1.0"
+version = "0.2.0"
 description = "职业规划前置工具：个人画像 × 外部趋势 → 可迭代、有证据、经得起压力测试的策略"
 requires-python = ">=3.11"
 dependencies = [

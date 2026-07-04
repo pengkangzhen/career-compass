@@ -16,6 +16,7 @@
 ## 亮点
 
 - 🧠 **引导式构建个人画像** —— 不用预填、非繁琐问答；Agent 引导你聊，边聊边提炼技能分层、补全优势证据，把约束（年龄/学历/地域/风险偏好）当硬墙
+- 📂 **扫描真实项目自动取证** —— `scan-projects` 从你点名的代码库提取技术栈 / 依赖 / 规模 / 论文成果，作为画像的硬证据（opt-in，只看你指定的目录，不扫整盘）
 - 🌐 **联网检索行业趋势与产业格局** —— AI 按你的画像派生查询、检索，信号带来源入库（trends / market / landscape 三类）
 - 🎯 **机会矩阵是核心交付物** —— 个人 × 信号 × 9 大热门赛道交叉，几个方向逐一打分（契合度 / Ikigai+期权 / 顺风逆风 / 可逆性），**给选项，不替你选**
 - 🏭 **预置 9 大热门赛道池** —— 半导体 / AI / 新能源 / 创新药 / 量子 / 机器人 / 商业航天 / AI医学 / 材料，每个标明"**价值在哪 / 陷阱在哪**"（深水区 vs 浅层陷阱）
@@ -60,6 +61,7 @@ claude                                    # 在本项目目录打开 Claude Code
 | `uv run career-compass brief` | 聚合所有数据为分析用 brief |
 | `uv run career-compass scan-plan` | 基于画像派生检索查询 |
 | `uv run career-compass new-signal DOMAIN TOPIC FINDING SOURCE [URL]` | 追加一条外部信号 |
+| `uv run career-compass scan-projects <path>...` | 扫描指定项目目录，自动提取证据 |
 | `uv run career-compass render-opportunities` | **渲染机会矩阵** |
 | `uv run career-compass render-strategy` | 渲染 strategy.md 骨架 |
 
@@ -72,7 +74,7 @@ claude                                    # 在本项目目录打开 Claude Code
 
 ## 状态
 
-v0.1 alpha。CLI 管道已端到端验证；`SKILL.md` 作为可安装 skill 的触发机制仍在打磨。欢迎 issue / PR。
+v0.2 alpha。CLI 管道 + 项目扫描已端到端验证；`SKILL.md` 作为可安装 skill 的触发机制仍在打磨。欢迎 issue / PR。
 
 ## License
 
