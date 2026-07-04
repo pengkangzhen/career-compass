@@ -13,14 +13,18 @@ def test_render_opportunities(examples_dir: Path):
 def test_render_opportunities_phase2_fields(examples_dir: Path):
     out = render_opportunities(examples_dir / "opportunities.yaml")
     assert "系统不替你做选择" in out
-    assert "对比摘要" in out
-    assert "四维评分说明" in out
+    assert "主业" in out
+    assert "副业" in out
+    assert "统一架构" in out
     assert "比较优势" in out
     assert "L1" not in out and "L2" not in out
-    assert "技能" in out or "RAG" in out
 
 
-def test_render_job_pack(examples_dir: Path):
+def test_render_opportunities_side_table_not_glued(examples_dir: Path):
+    out = render_opportunities(examples_dir / "opportunities.yaml")
+    for line in out.splitlines():
+        if "协同主业" in line:
+            assert "| 维度 |" not in line, f"table glued to synergizes line: {line[:120]}"
     out = render_job_pack(
         examples_dir / "opportunities.yaml",
         examples_dir / "profile.yaml",

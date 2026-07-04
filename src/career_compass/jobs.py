@@ -13,6 +13,8 @@ from pathlib import Path
 from .jd_analyze import analyze_jd_text
 from .schema import (
     Constraints,
+    EducationLevel,
+    EducationStatus,
     Profile,
     ProjectsFile,
     SavedJob,
@@ -144,10 +146,18 @@ def _detect_barriers(
         barriers.append("当前：无 CCF-A 一作（EAAI 在投，非已发表顶会）")
 
     if re.search(r"博士学位|具有博士", description, re.I):
-        if profile.current_role and "在读" in (profile.current_role + "博士"):
-            barriers.append("当前：博士在读，预计 2028 毕业——「具有博士学位」可能需毕业后再投")
+        phd = profile.education_for(EducationLevel.phd)
+        if phd and phd.status == EducationStatus.enrolled:
+            grad = phd.graduation_hint() or "毕业"
+            barriers.append(f"当前：博士在读（{grad}）——「具有博士学位」可能需毕业后再投")
+        elif profile.current_role and "在读" in (profile.current_role + "博士"):
+            barriers.append("当前：博士在读——「具有博士学位」可能需毕业后再投")
 
-    if constraints and constraints.notes and "二本" in constraints.notes:
+    bachelor = profile.education_for(EducationLevel.bachelor)
+    first_tier = (bachelor.school_tier if bachelor else None) or ""
+    if not first_tier and constraints and constraints.notes and "二本" in constraints.notes:
+        first_tier = "二本"
+    if first_tier and "二本" in first_tier:
         head_tier = f"{company} {description}"
         if re.search(r"字节|ByteDance|腾讯|华为.*研究院|达摩院|AI Lab", head_tier, re.I):
             barriers.append("结构性：第一学历二本，头部研究院/研究岗简历关可能偏严（非 JD 明文）")

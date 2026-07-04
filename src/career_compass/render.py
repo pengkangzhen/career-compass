@@ -7,6 +7,7 @@ import yaml
 from jinja2 import Template
 
 from .schema import (
+    EducationStatus,
     SkillGap,
     load_constraints,
     load_industry_graph,
@@ -37,9 +38,32 @@ def brief(
     projects = load_projects(projects_path).projects if projects_path.exists() else []
     narrative = narrative_path.read_text(encoding="utf-8") if narrative_path.exists() else "(narrative.md 尚未填写)"
 
-    lines: list[str] = ["# Career-Compass Brief\n"]
+    lines: list[str] = ["# 北斗星 Brief\n"]
 
     lines.append("## Profile")
+    if profile.education:
+        lines.append("### 教育背景")
+        for edu in profile.sorted_education():
+            tier = f" ({edu.school_tier})" if edu.school_tier else ""
+            grad = edu.graduation_hint()
+            time_part = f"，{grad}" if grad else ""
+            status = "在读" if edu.status == EducationStatus.enrolled else "已毕业"
+            dept = f" · {edu.department}" if edu.department else ""
+            extra: list[str] = []
+            if edu.ranking_or_gpa:
+                extra.append(edu.ranking_or_gpa)
+            if edu.honors:
+                extra.append(edu.honors)
+            if edu.thesis_or_focus:
+                extra.append(f"方向: {edu.thesis_or_focus}")
+            if edu.advisor:
+                extra.append(f"导师: {edu.advisor}")
+            tail = f" — {' · '.join(extra)}" if extra else ""
+            lines.append(
+                f"- **{edu.level_label()}** {edu.school}{tier} · {edu.major}{dept}"
+                f" · {status}{time_part}{tail}"
+            )
+        lines.append("")
     lines.append("```yaml\n" + yaml.safe_dump(
         profile.model_dump(mode="json"), allow_unicode=True, sort_keys=False
     ) + "```")
@@ -129,81 +153,105 @@ def brief(
     return "\n".join(lines)
 
 
+# Jinja 空白纪律（避免 Markdown 粘行 / 表格断裂）：
+# - 列表、段落：标题行与 `- item` 之间保留空行；{% for %} 不要用 {%- 吃掉空行
+# - 表格：表头分隔线 `|---|` 与首行数据之间不能有空行；表体用 {% for row -%} 贴紧
+# - 块级元素（## / | table）前保留空行；{% endif %} 后若接下一块，模板里显式留空行
 _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
-> **本项目的核心交付物。** 下列方向按综合评级排序，每条均附四维评分依据、期权与成本。
-> **系统不替你做选择** —— 请结合自己的价值观、硬约束与风险偏好自行判断。
+> **本项目的核心交付物。** 机会分 **主业** 与 **副业** 两层——不是互斥选项，而是同一能力栈的不同变现与期权路径。
+> **系统不替你做选择** —— 请结合价值观、硬约束与风险偏好自行判断。
 
+## 统一架构（主业 × 副业）
+
+{% if unified_theme %}
+{{ unified_theme }}
+
+{% else %}
+主业承载主身份与现金流（offer/职级）；副业共用同一能力栈，换可见度、人脉与可选收入。两者互相喂养，而非二选一。
+
+{% endif %}
+{% if shared_assets %}
+**共享资产**（两层共用，不必重复建设）：
+
+{% for a in shared_assets %}
+- {{ a }}
+{% endfor %}
+
+{% endif %}
+{% if synergy_notes %}
+**协同方式**：{{ synergy_notes }}
+
+{% endif %}
 ## 四维评分说明
-
-每个方向从四个维度打分，便于横向比较：
 
 | 维度 | 问什么 | 常见评级 |
 |------|--------|----------|
-| **比较优势** | 在这个方向上，什么是别人难以复制的？（看 strength_evidence，不是自评） | 高 / 中 / 低 |
-| **匹配与期权** | 热爱 × 擅长 × 被需要 × 有回报；以及这条路能打开多少后续选项 | 高 / 中 / 低 |
-| **顺风/逆风** | 外部市场：需求在涨还是已经饱和内卷？（看 signals） | 顺风 / 弱顺风 / 中 / 逆风 |
-| **可逆性** | 选错了能否低成本退出？先试再定，还是一选就很难回头？ | 可逆 / commit |
+| **比较优势** | 在这个方向上，什么是别人难以复制的？ | 高 / 中 / 低 |
+| **匹配与期权** | 热爱 × 擅长 × 被需要 × 有回报；以及后续选项 | 高 / 中 / 低 |
+| **顺风/逆风** | 外部市场：需求在涨还是饱和内卷？ | 顺风 / 弱顺风 / 中 / 逆风 |
+| **可逆性** | 选错了能否低成本退出？ | 可逆 / commit |
 
-**综合评级 A–F**：A=四维整体强 · B=值得认真比较 · C=备选 · D=勉强或仅特定价值观下考虑
+**综合评级 A–F**：A=强烈推荐 · B=值得认真比较 · C=备选 · D=勉强
 
-## 如何使用
+---
 
-1. 看 **总览表**，比较四个维度与综合评级
-2. 看 **对比摘要**，快速权衡「通向什么 / 排除什么」
-3. 对感兴趣的方向读 **详情**，核对依据是否认可
-4. 自行选定 1 个方向后 → `playbooks/4-plan.md`（可选）
+## 主业（Primary）
 
-## 总览
+> 主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。
+
+### 主业总览
 
 | # | 方向 | 比较优势 | 匹配与期权 | 顺风/逆风 | 可逆性 | 综合 |
 |---|------|----------|------------|-----------|--------|------|
-{% for o in ranked -%}
+{% for o in ranked_primary -%}
 | {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} |
+{% else -%}
+| — | (暂无主业方向) | — | — | — | — | — |
 {% endfor %}
 
-## 对比摘要
+### 主业对比摘要
 
 | 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 可逆第一步 |
 |------|------|-------------------|-------------|-----------|
-{% for o in ranked -%}
+{% for o in ranked_primary -%}
 | {{ o.direction }} | {{ o.composite }} | {{ o.fit_rationale[:60] }}{% if o.fit_rationale|length > 60 %}…{% endif %} | {{ o.costs[0] if o.costs else "—" }} | {{ o.first_step[:50] if o.first_step else "—" }}{% if o.first_step and o.first_step|length > 50 %}…{% endif %} |
 {% endfor %}
 
-## 各方向详情
+### 主业详情
 
-{% for o in ranked %}
-### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
+{% for o in ranked_primary %}
+#### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
 
-{% if o.industry or o.value_chain_node or o.competition_index is not none -%}
+{% if o.industry or o.value_chain_node or o.competition_index is not none %}
 **定位**
-{% if o.industry -%}
-- 行业: {{ o.industry }}
-{% endif -%}
-{% if o.value_chain_node -%}
-- 价值链: {{ o.value_chain_node }}
-{% endif -%}
-{% if o.competition_index is not none -%}
-- 竞争密度: {{ "%.2f"|format(o.competition_index) }}
-{% endif -%}
-{% endif -%}
 
-{% if o.role_families -%}
+{% if o.industry %}- 行业: {{ o.industry }}
+{% endif %}
+{% if o.value_chain_node %}- 价值链: {{ o.value_chain_node }}
+{% endif %}
+{% if o.competition_index is not none %}- 竞争密度: {{ "%.2f"|format(o.competition_index) }}
+{% endif %}
+
+{% endif %}
+{% if o.role_families %}
 **岗位族**
 
 | 岗位 | 职级带 | 匹配度 | 竞争指数 |
 |------|--------|--------|----------|
 {% for rf in o.role_families -%}
 | {{ rf.role }} | {{ rf.seniority or "—" }} | {{ rf.match_score if rf.match_score is not none else "—" }} | {{ rf.competition_index if rf.competition_index is not none else "—" }} |
-{% endfor -%}
-{% endif -%}
+{% endfor %}
 
-{% if o.skill_gaps -%}
+{% endif %}
+{% if o.skill_gaps %}
 **技能缺口**
-{% for g in o.skill_gaps -%}
-- **{{ g.skill }}** ({{ g.priority }}) — 当前 {{ g.current_level or "?" }} → 目标 {{ g.target_level or "?" }}{% if g.notes %} · {{ g.notes }}{% endif %}
-{% endfor -%}
-{% endif -%}
+
+{% for g in o.skill_gaps %}
+- **{{ g.skill }}** ({{ g.priority }}) — {{ g.current_level or "?" }} → {{ g.target_level or "?" }}{% if g.notes %} · {{ g.notes }}{% endif %}
+{% endfor %}
+
+{% endif %}
 
 | 维度 | 评级 | 依据 |
 |------|------|------|
@@ -212,17 +260,69 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 | 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
 | 可逆性 | {{ o.risk }} | {{ o.risk_rationale }} |
 
-**打开的选项**（选这条路通向什么）：
-{% for x in o.opens_up -%}
+**打开的选项**
+
+{% for x in o.opens_up %}
 - {{ x }}
-{% else -%}
+{% else %}
 - (待填)
 {% endfor %}
 
-**机会成本**（选它会排除什么）：
-{% for x in o.costs -%}
+**机会成本**
+
+{% for x in o.costs %}
 - {{ x }}
+{% else %}
+- (待填)
+{% endfor %}
+
+**可逆的第一步**：{{ o.first_step or "(待填)" }}
+
+---
+{% endfor %}
+
+## 副业（Side）
+
+> 与主业**共用能力栈**：强化可见度、人脉、可选现金流；很多副业的 first_step 同时是主业投递的敲门砖。
+
+### 副业总览
+
+| # | 方向 | 比较优势 | 匹配与期权 | 顺风/逆风 | 可逆性 | 综合 | 协同主业 |
+|---|------|----------|------------|-----------|--------|------|----------|
+{% for o in ranked_side -%}
+| {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} | {{ o.synergizes_with|join("；") if o.synergizes_with else "—" }} |
 {% else -%}
+| — | (暂无副业方向) | — | — | — | — | — | — |
+{% endfor %}
+
+### 副业详情
+
+{% for o in ranked_side %}
+#### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
+{% if o.synergizes_with %}
+**协同主业**：{{ o.synergizes_with|join(" · ") }}
+
+{% endif %}
+| 维度 | 评级 | 依据 |
+|------|------|------|
+| 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
+| 匹配与期权 | {{ o.match }} | {{ o.match_rationale }} |
+| 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
+| 可逆性 | {{ o.risk }} | {{ o.risk_rationale }} |
+
+**打开的选项**
+
+{% for x in o.opens_up %}
+- {{ x }}
+{% else %}
+- (待填)
+{% endfor %}
+
+**机会成本**
+
+{% for x in o.costs %}
+- {{ x }}
+{% else %}
 - (待填)
 {% endfor %}
 
@@ -233,7 +333,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ## 下一步
 
-从矩阵中**自行选定**一个方向 → `playbooks/4-plan.md` 展开路径（可选 `playbooks/5-stress-test.md` 压测）。
+从**主业**或**副业**中自行选定 1 个方向 → `playbooks/4-plan.md`（可选 `playbooks/5-stress-test.md` 压测）。
 """
 
 
@@ -241,7 +341,11 @@ def render_opportunities(opportunities_path: Path) -> str:
     matrix = load_opportunities(opportunities_path)
     return Template(_OPPORTUNITIES_TEMPLATE).render(
         generated_on=matrix.generated_on.isoformat(),
-        ranked=matrix.ranked(),
+        unified_theme=matrix.unified_theme,
+        shared_assets=matrix.shared_assets,
+        synergy_notes=matrix.synergy_notes,
+        ranked_primary=matrix.ranked_primary(),
+        ranked_side=matrix.ranked_side(),
     )
 
 
@@ -285,13 +389,13 @@ _JOB_PACK_TEMPLATE = """# 求职定位包 v1 — {{ generated_on }}
 
 ## Top 行业 / 赛道（{{ top_n }}）
 
-{% for item in industries -%}
+{% for item in industries %}
 ### {{ loop.index }}. {{ item.name }}
 - 价值链: {{ item.value_chain }}
 - 综合评级: {{ item.composite }}
 - 竞争密度: {{ item.competition }}
-{% endfor %}
 
+{% endfor %}
 ## 推荐岗位族
 
 | 方向 | 职级带 | 匹配度 | 目标公司 A 档 |
@@ -302,15 +406,15 @@ _JOB_PACK_TEMPLATE = """# 求职定位包 v1 — {{ generated_on }}
 
 ## 技能缺口（跨方向汇总）
 
-{% for g in skill_gaps -%}
+{% for g in skill_gaps %}
 - **{{ g.skill }}** — {{ g.priority }} · {{ g.notes }}
-{% else -%}
+{% else %}
 - (暂无结构化缺口 —— 运行 `career-compass match` 生成)
 {% endfor %}
 
 ## 90 天第一步
 
-{% for step in first_steps -%}
+{% for step in first_steps %}
 1. {{ step }}
 {% endfor %}
 
@@ -398,12 +502,12 @@ _EXECUTION_PACK_TEMPLATE = """# 求职执行包 — {{ generated_on }}
 
 ## 证据故事（投递叙事素材）
 
-{% for story in evidence_stories -%}
+{% for story in evidence_stories %}
 ### {{ loop.index }}. {{ story.claim }}
 - **证据**: {{ story.proof }}
 - **怎么用**: 在简历/面试中强调「{{ story.hook }}」
-{% endfor %}
 
+{% endfor %}
 ## 简历重构建议
 
 - **置顶技能关键词**: {{ resume_keywords }}
@@ -433,7 +537,7 @@ _EXECUTION_PACK_TEMPLATE = """# 求职执行包 — {{ generated_on }}
 
 ## 90 天行动
 
-{% for step in action_steps -%}
+{% for step in action_steps %}
 {{ loop.index }}. {{ step }}
 {% endfor %}
 

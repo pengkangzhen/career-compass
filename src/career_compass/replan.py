@@ -165,33 +165,41 @@ def apply_replan_suggestions(
     """根据建议生成修订版矩阵（确定性规则，不调用 LLM）。"""
     from .schema import SkillGap
 
-    directions = [o.model_copy(deep=True) for o in matrix.directions]
+    primary = [o.model_copy(deep=True) for o in matrix.primary]
+    side = [o.model_copy(deep=True) for o in matrix.side]
+    layer_lists = [primary, side]
 
     for sug in suggestions:
         if sug.kind != "downgrade_direction":
             continue
-        for opp in directions:
-            if _direction_key(sug.target, opp.direction):
-                opp.composite = _composite_downgrade(opp.composite)
-                opp.costs = list(opp.costs) + [f"[replan] {sug.reason}"]
+        for directions in layer_lists:
+            for opp in directions:
+                if _direction_key(sug.target, opp.direction):
+                    opp.composite = _composite_downgrade(opp.composite)
+                    opp.costs = list(opp.costs) + [f"[replan] {sug.reason}"]
 
     for sug in suggestions:
         if sug.kind != "add_skill_gap":
             continue
-        for opp in directions:
-            existing = {g.skill for g in opp.skill_gaps}
-            if sug.target not in existing:
-                opp.skill_gaps.append(SkillGap(
-                    skill=sug.target,
-                    current_level="none",
-                    target_level="market feedback",
-                    priority="high",
-                    notes=sug.reason[:120],
-                ))
+        for directions in layer_lists:
+            for opp in directions:
+                existing = {g.skill for g in opp.skill_gaps}
+                if sug.target not in existing:
+                    opp.skill_gaps.append(SkillGap(
+                        skill=sug.target,
+                        current_level="none",
+                        target_level="market feedback",
+                        priority="high",
+                        notes=sug.reason[:120],
+                    ))
 
     return OpportunityMatrix(
         generated_on=date.today(),
-        directions=directions,
+        unified_theme=matrix.unified_theme,
+        shared_assets=list(matrix.shared_assets),
+        synergy_notes=matrix.synergy_notes,
+        primary=primary,
+        side=side,
     )
 
 

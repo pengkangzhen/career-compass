@@ -5,12 +5,41 @@
 name: "Alex（示例，请替换）"
 current_role: "数据工程师"
 
+# 教育背景：本 / 硕 / 博 分层填写。school = 院校全名；school_tier = 985/211/双一流/一本/二本/海外。
 education:
-  - degree: "硕士"
-    major: "计算机科学"
+  - level: bachelor
+    degree: "学士"
+    school: "某省立大学"
+    school_tier: "一本"
+    department: "数学学院"
+    major: "信息与计算科学"
+    start_year: 2015
+    end_year: 2019
+    status: graduated
+    ranking_or_gpa: "专业前 15%"
+
+  - level: master
+    degree: "工学硕士"
     school: "某大学"
-    year: 2021
+    school_tier: "211"
+    department: "计算机学院"
+    major: "计算机科学与技术"
+    start_year: 2019
+    end_year: 2021
+    status: graduated
     ranking_or_gpa: "前 10%"
+
+  # 无某层次学历可整段删除；博士在读示例：
+  # - level: phd
+  #   degree: "博士在读"
+  #   school: "某大学"
+  #   school_tier: "985"
+  #   major: "管理科学与工程"
+  #   start_year: 2024
+  #   end_year: 2028
+  #   status: enrolled
+  #   thesis_or_focus: "供应链优化 × 多智能体"
+  #   advisor: "张教授"
 
 experience:
   - company: "某电商平台"
@@ -36,7 +65,6 @@ skills:
     - "向量数据库"
 
 # 每条优势必须挂一个客观证据，过滤掉自我感觉良好。
-# 没有证据的"擅长"不算数 —— 这是本工具最重要的纪律。
 strength_evidence:
   - claim: "能把混乱的数据流程规范化"
     proof: "入职半年主导重写特征管道，事故清零、延迟降 5/6"
@@ -53,10 +81,9 @@ preferences:
   drained_by:
     - "重复运维"
     - "扯皮式协作"
-  # 价值排序驱动取舍：把最重要的放前面。冲突时按此取舍。
   values_ranked:
-    - "learning"      # 成长/新东西
-    - "impact"        # 业务影响
-    - "autonomy"      # 自主权
+    - "learning"
+    - "impact"
+    - "autonomy"
     - "money"
     - "stability"

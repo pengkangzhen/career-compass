@@ -4,10 +4,21 @@ name: "Example User"
 current_role: "数据工程师"
 
 education:
-  - degree: "硕士"
-    major: "计算机科学"
+  - level: bachelor
+    degree: "学士"
+    school: "Example State University"
+    school_tier: "一本"
+    major: "数学与应用数学"
+    end_year: 2019
+    status: graduated
+
+  - level: master
+    degree: "工学硕士"
     school: "Example University"
-    year: 2021
+    school_tier: "211"
+    major: "计算机科学"
+    end_year: 2021
+    status: graduated
 
 experience:
   - company: "Example Corp"

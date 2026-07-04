@@ -1,6 +1,6 @@
 # CLAUDE.md — 项目操作指南（Claude Code 打开本项目时自动加载）
 
-本项目是 **Career-Compass**：职业生涯决策引擎。当用户谈到职业规划 / 职业方向 / 求职决策 / 行业趋势 / 投递反馈时，运行 Career-Compass 工作流。
+本项目是 **北斗星**（代码库名 `career-compass`）：职业生涯决策引擎。当用户谈到职业规划 / 职业方向 / 求职决策 / 行业趋势 / 投递反馈时，运行北斗星工作流。
 
 ## 北极星
 
@@ -8,7 +8,9 @@
 
 ## 它是什么
 
-- `src/career_compass/` —— Python CLI（`uv run career-compass <cmd>`）
+用户关注的四块：**个人画像 · 行业趋势 · 职位收藏 · 机会矩阵**（App 与 CLI 同构）。
+
+- `src/career_compass/` —— Python CLI + macOS App（`career-compass-app`）
 - `playbooks/` —— 分析逻辑（Agent 驱动部分）
 - `data/` —— 用户唯一事实源（gitignore）
 - `data/examples/` —— 脱敏示例

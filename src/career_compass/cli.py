@@ -1,4 +1,4 @@
-"""Career-Compass CLI 入口。
+"""北斗星 CLI 入口。
 
 命令:
   career-compass validate              校验画像/约束，列出完整性缺口
@@ -268,7 +268,7 @@ def cmd_match(args: argparse.Namespace) -> int:
             print(f"     缺口: {gaps}")
 
     if args.write_draft:
-        matrix = OpportunityMatrix(generated_on=date.today(), directions=opps)
+        matrix = OpportunityMatrix(generated_on=date.today(), primary=opps)
         save_opportunities(OPPORTUNITIES_DRAFT, matrix)
         print(f"\n✅ 草稿已写入 {OPPORTUNITIES_DRAFT}（审阅后可 mv 为 opportunities.yaml）")
     else:

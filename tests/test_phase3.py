@@ -79,7 +79,7 @@ def test_replan_suggestions(tmp_path: Path, examples_dir: Path):
 def test_apply_replan_downgrade():
     matrix = OpportunityMatrix(
         generated_on=date.today(),
-        directions=[
+        primary=[
             Opportunity(
                 direction="LLM 应用工程师",
                 fit="高", fit_rationale="x", match="高", match_rationale="x",
@@ -97,7 +97,7 @@ def test_apply_replan_downgrade():
             reason="test",
         ),
     ])
-    assert revised.directions[0].composite == "B"
+    assert revised.primary[0].composite == "B"
 
 
 def test_jd_analyze(examples_dir: Path):

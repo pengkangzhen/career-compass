@@ -1,9 +1,9 @@
 ---
 name: career-compass
-description: 职业生涯决策引擎。画像×产业趋势×匹配引擎→机会矩阵与求职执行闭环。用户要职业规划/选行业选岗位/投递反馈时使用。流程：intake→scan→analyze→execute(track/replan)→可选plan/stress-test。
+description: 北斗星 — 职业生涯决策引擎。画像×产业趋势×匹配引擎→机会矩阵与求职执行闭环。用户要职业规划/选行业选岗位/投递反馈时使用。流程：intake→scan→analyze→execute(track/replan)→可选plan/stress-test。
 ---
 
-# Career-Compass
+# 北斗星
 
 一个"投简历之前"的职业规划工具。**核心交付物是一张机会矩阵**：几个可比较、有依据的职业方向，作为用户职业决策的输入。它**不替用户拍板**走哪条路。
 

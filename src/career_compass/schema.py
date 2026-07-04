@@ -17,7 +17,7 @@ import yaml
 from pydantic import BaseModel, Field, HttpUrl, ValidationError
 
 __all__ = [
-    "RiskAppetite", "Education", "Experience", "StrengthEvidence",
+    "RiskAppetite", "EducationLevel", "EducationStatus", "Education", "Experience", "StrengthEvidence",
     "Preferences", "Skills", "Profile", "Constraints", "Signal",
     "RoleFamily", "SkillGap", "Opportunity", "OpportunityMatrix", "Sector",
     "ValueChainNode", "Subsector", "Industry", "IndustryGraph",
@@ -85,12 +85,89 @@ class RiskAppetite(str, Enum):
     high = "high"
 
 
+class EducationLevel(str, Enum):
+    bachelor = "bachelor"
+    master = "master"
+    phd = "phd"
+
+
+class EducationStatus(str, Enum):
+    graduated = "graduated"
+    enrolled = "enrolled"
+
+
+LEVEL_CN: dict[EducationLevel, str] = {
+    EducationLevel.bachelor: "本科",
+    EducationLevel.master: "硕士",
+    EducationLevel.phd: "博士",
+}
+
+TIER_ONLY_SCHOOL_LABELS: frozenset[str] = frozenset({
+    "985", "211", "双一流", "一本", "二本", "三本", "海外", "其他",
+})
+
+
+def infer_education_level(degree: str) -> EducationLevel | None:
+    """从 degree 文案推断学历层级（兼容旧 profile）。"""
+    text = degree.strip().lower()
+    if not text:
+        return None
+    if any(k in text for k in ("博士", "phd", "博后")):
+        return EducationLevel.phd
+    if any(k in text for k in ("硕士", "master", "研究生")):
+        return EducationLevel.master
+    if any(k in text for k in ("本科", "学士", "bachelor")):
+        return EducationLevel.bachelor
+    return None
+
+
 class Education(BaseModel):
-    degree: str
-    major: str
-    school: str
-    year: Optional[int] = None
+    level: Optional[EducationLevel] = None
+    degree: str = ""                 # 显示用，如「工学硕士」「博士在读」
+    major: str = ""
+    school: str = ""                 # 院校全名
+    school_tier: Optional[str] = None  # 985/211/双一流/一本/二本/海外
+    department: Optional[str] = None
+    start_year: Optional[int] = None
+    end_year: Optional[int] = None
+    year: Optional[int] = None       # 兼容旧字段，等同 end_year
+    status: EducationStatus = EducationStatus.graduated
     ranking_or_gpa: Optional[str] = None
+    honors: Optional[str] = None
+    thesis_or_focus: Optional[str] = None
+    advisor: Optional[str] = None
+
+    def model_post_init(self, __context: object) -> None:
+        if self.year is not None and self.end_year is None:
+            object.__setattr__(self, "end_year", self.year)
+        if self.level is None and self.degree:
+            inferred = infer_education_level(self.degree)
+            if inferred is not None:
+                object.__setattr__(self, "level", inferred)
+        if self.status == EducationStatus.graduated and self.degree and "在读" in self.degree:
+            object.__setattr__(self, "status", EducationStatus.enrolled)
+
+    def resolved_level(self) -> EducationLevel | None:
+        if self.level is not None:
+            return self.level
+        return infer_education_level(self.degree)
+
+    def level_label(self) -> str:
+        lv = self.resolved_level()
+        if lv is not None:
+            return LEVEL_CN[lv]
+        return self.degree or "学历"
+
+    def school_looks_like_tier_only(self) -> bool:
+        s = self.school.strip()
+        return bool(s) and s in TIER_ONLY_SCHOOL_LABELS
+
+    def graduation_hint(self) -> str:
+        if self.end_year is None:
+            return ""
+        if self.status == EducationStatus.enrolled:
+            return f"预计 {self.end_year}"
+        return str(self.end_year)
 
 
 class Experience(BaseModel):
@@ -127,11 +204,46 @@ class Profile(BaseModel):
     strength_evidence: list[StrengthEvidence] = Field(default_factory=list)
     preferences: Preferences = Field(default_factory=Preferences)
 
+    def sorted_education(self) -> list[Education]:
+        order = {EducationLevel.bachelor: 0, EducationLevel.master: 1, EducationLevel.phd: 2}
+        return sorted(
+            self.education,
+            key=lambda e: order.get(e.resolved_level(), 9),
+        )
+
+    def education_for(self, level: EducationLevel) -> Education | None:
+        for edu in self.education:
+            if edu.resolved_level() == level:
+                return edu
+        return None
+
+    def _education_gaps(self) -> list[str]:
+        missing: list[str] = []
+        if not self.education:
+            missing.append("education（至少填本科院校与专业）")
+            return missing
+
+        if self.education_for(EducationLevel.bachelor) is None:
+            missing.append("education.bachelor（本科院校与专业）")
+
+        for edu in self.education:
+            label = edu.level_label()
+            if is_placeholder(edu.school):
+                missing.append(f"education.{label}.school（院校全名）")
+            elif edu.school_looks_like_tier_only():
+                missing.append(
+                    f"education.{label}.school 请填院校全名（school_tier 单独填层级）"
+                )
+            if is_placeholder(edu.major):
+                missing.append(f"education.{label}.major（专业）")
+        return missing
+
     def gaps(self) -> list[str]:
         """缺失的关键字段 —— intake 完整性检查。返回空列表表示可进入分析。"""
         missing: list[str] = []
         if not self.education and not self.experience:
             missing.append("education 或 experience 至少要有一个")
+        missing.extend(self._education_gaps())
         if not self.skills.core:
             missing.append("skills.core（吃饭的本事）")
         elif any(is_placeholder(s) for s in self.skills.core):
@@ -164,10 +276,21 @@ def validate_profile_text_fields(profile: Profile) -> ValidationResult:
                 message=f"经历 {exp.role!r} 的公司/职责含占位内容",
             ))
     for edu in profile.education:
+        label = edu.level_label()
         if is_placeholder(edu.school):
             warnings.append(ValidationIssue(
                 level="warning", field="education",
-                message=f"学历 {edu.degree!r} 的学校含占位内容",
+                message=f"学历 {label} 的学校含占位内容",
+            ))
+        elif edu.school_looks_like_tier_only():
+            warnings.append(ValidationIssue(
+                level="warning", field="education",
+                message=f"学历 {label} 的 school 仅为层级标签，请填院校全名",
+            ))
+        if is_placeholder(edu.major):
+            warnings.append(ValidationIssue(
+                level="warning", field="education",
+                message=f"学历 {label} 的专业含占位内容",
             ))
     return ValidationResult(warnings=warnings)
 
@@ -315,6 +438,7 @@ class Opportunity(BaseModel):
     opens_up: list[str] = Field(default_factory=list)
     costs: list[str] = Field(default_factory=list)
     first_step: str = ""
+    synergizes_with: list[str] = Field(default_factory=list)  # 与另一层方向的协同
     # Phase 2 可选字段（Schema 2.0，向后兼容）
     industry: Optional[str] = None
     value_chain_node: Optional[str] = None
@@ -325,15 +449,37 @@ class Opportunity(BaseModel):
 
 class OpportunityMatrix(BaseModel):
     generated_on: date
-    directions: list[Opportunity] = Field(default_factory=list)
+    unified_theme: str = ""
+    shared_assets: list[str] = Field(default_factory=list)
+    synergy_notes: str = ""
+    primary: list[Opportunity] = Field(default_factory=list)
+    side: list[Opportunity] = Field(default_factory=list)
+    directions: list[Opportunity] = Field(default_factory=list)  # 旧字段，加载时迁移到 primary
 
     _RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
 
-    def ranked(self) -> list[Opportunity]:
+    def model_post_init(self, __context: object) -> None:
+        if self.directions and not self.primary and not self.side:
+            object.__setattr__(self, "primary", list(self.directions))
+
+    def _ranked(self, items: list[Opportunity]) -> list[Opportunity]:
         return sorted(
-            self.directions,
+            items,
             key=lambda o: self._RANK.get(o.composite.strip().upper(), 9),
         )
+
+    def ranked_primary(self) -> list[Opportunity]:
+        return self._ranked(self.primary)
+
+    def ranked_side(self) -> list[Opportunity]:
+        return self._ranked(self.side)
+
+    def ranked(self) -> list[Opportunity]:
+        """向后兼容：默认返回主业排序列表。"""
+        return self.ranked_primary()
+
+    def all_directions(self) -> list[Opportunity]:
+        return list(self.primary) + list(self.side)
 
 
 # ---------- 宏观行业池（用户调研）----------

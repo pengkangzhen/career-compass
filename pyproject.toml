@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 career-compass = "career_compass.cli:main"
+career-compass-app = "career_compass.gui.app:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -18,9 +19,11 @@ build-backend = "hatchling.build"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+gui = ["pywebview>=5.4", "markdown>=3.5"]
 
 [dependency-groups]
 dev = ["pytest>=8.0"]
+gui = ["pywebview>=5.4", "markdown>=3.5"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -29,5 +32,8 @@ pythonpath = ["src"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/career_compass"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/career_compass/gui/assets" = "career_compass/gui/assets"
+
 [tool.hatch.build.targets.sdist]
-include = ["src", "playbooks", "templates", "SKILL.md"]
+include = ["src", "playbooks", "templates", "assets", "SKILL.md"]

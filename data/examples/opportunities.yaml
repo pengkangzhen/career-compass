@@ -1,6 +1,11 @@
 generated_on: 2026-01-15
 
-directions:
+unified_theme: "数据工程 + LLM 应用是统一能力栈：主业走工业岗，副业用 demo/内容换可见度与可选项目收入。"
+shared_assets:
+  - "Python / SQL 数据管道能力"
+  - "RAG demo 与评测经验"
+
+primary:
   - direction: "LLM 应用工程师"
     industry: "人工智能"
     value_chain_node: "RAG / agent 应用层"
@@ -29,3 +34,23 @@ directions:
     costs:
       - "纯数据工程纵深"
     first_step: "两周内完成 RAG demo"
+
+side:
+  - direction: "技术博客 + 开源 RAG 小工具"
+    fit: 高
+    fit_rationale: "已有 demo，写作成本低；与主业技能完全重叠"
+    match: 中
+    match_rationale: "期权：可见度、内推线索；非主现金流"
+    wind: 顺风
+    wind_rationale: "LLM 应用内容需求大"
+    risk: 可逆
+    risk_rationale: "每周几小时即可试"
+    composite: B
+    synergizes_with:
+      - "LLM 应用工程师"
+    opens_up:
+      - "技术影响力"
+      - "副业咨询线索"
+    costs:
+      - "写作时间"
+    first_step: "发一篇 RAG 评测/踩坑文"
