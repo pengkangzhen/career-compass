@@ -1,88 +1,86 @@
 ---
 name: career-compass
-description: 北斗星 — 职业生涯决策引擎。画像×产业趋势×匹配引擎→机会矩阵与求职执行闭环。用户要职业规划/选行业选岗位/投递反馈时使用。流程：intake→scan→analyze→execute(track/replan)→可选plan/stress-test。
+description: Beidou (北斗星) — pre-application career decision engine. Profile × industry trends × match engine → opportunity matrix and job-search execution loop. Use when the user wants career planning, industry/role choice, or application feedback. Flow intake→scan→analyze→execute(track/replan)→optional plan/stress-test.
 ---
 
-# 北斗星
+**English** | [简体中文](SKILL.zh-CN.md)
 
-一个"投简历之前"的职业规划工具。**核心交付物是一张机会矩阵**：几个可比较、有依据的职业方向，作为用户职业决策的输入。它**不替用户拍板**走哪条路。
+# Beidou (北斗星)
 
-## 心智模型
+A **before-you-apply** career planning system. **Core deliverable: an opportunity matrix** — several comparable, evidence-backed directions as input to the user's decision. It **does not** pick a path for them.
+
+## Mental model
 
 ```
-个人画像(profile.yaml + narrative.md + constraints.yaml)
+Profile (profile.yaml + narrative.md + constraints.yaml)
         ×
-外部信号(signals/*.yaml，带来源+日期)
+External signals (signals/*.yaml, sourced + dated)
         ↓
-   四层框架分析
+   Four-axis analysis
         ↓
-【机会矩阵】opportunities.yaml → opportunities.md
+Opportunity matrix: opportunities.yaml → opportunities.md
         ↓
-【求职定位包】job_pack.md · 【执行包】execution_pack.md  (Phase 2–3)
+Job pack · execution pack (Phases 2–3)
         ↓
-【投递追踪】applications.yaml → replan  (Phase 3)
-        ↓ （可选）
-   strategy.md → 压力测试
+Application tracking → replan (Phase 3)
+        ↓ (optional)
+   strategy.md → stress test
 ```
 
-`data/` 是唯一事实源；`playbooks/` 是分析逻辑；`src/`（career-compass CLI）只做校验/抓取/渲染，不做判断。
+`data/` is the single source of truth; `playbooks/` holds analysis logic; `src/` (career-compass CLI) validates, harvests, and renders — it does not judge.
 
-## 阶段
+## Stages
 
-| 阶段 | 必选 | 触发场景 | 你要做的事 |
-|------|------|----------|------------|
-| **1-intake** | ✅ | 首次来 / 画像不完整 | 对话采集 → 填 `profile.yaml`、`narrative.md`、`constraints.yaml` → `uv run career-compass validate` 直到无缺口 |
-| **2-scan** | ✅ | 画像齐了，补外部信息 | `uv run career-compass scan-plan` → 用 web-search-prime/deep-research/WebSearch 检索 → `uv run career-compass new-signal` 逐条入库（**带来源+日期**） |
-| **3-analyze** | ✅ | 画像+信号都有 | `brief` → 可选 `match --write-draft` → 审阅 `opportunities.yaml` → `render-opportunities` → `render-pack` |
-| **3b-execute** | ❌可选 | 开始投递 | `render-execution` → `track add` → `track funnel` → `replan`；JD 对齐用 `jd-analyze` |
-| **4-plan** | ❌可选 | **用户从矩阵里自己选定了**一个方向 | 按 `playbooks/4-plan.md` → `strategy.md` |
-| **5-stress-test** | ❌可选 | plan 完成 | 按 `playbooks/5-stress-test.md` 做 pre-mortem + 假设挑战 → 修订 `strategy.md` |
+| Stage | Required | When | Your job |
+|-------|----------|------|----------|
+| **1-intake** | yes | First visit / incomplete profile | Dialogue → fill profile files → `uv run career-compass validate` until clean |
+| **2-scan** | yes | Profile ready, need market intel | `scan-plan` → web search → `new-signal` each finding (**source + date**) |
+| **3-analyze** | yes | Profile + signals exist | `brief` → optional `match --write-draft` → review `opportunities.yaml` → `render-opportunities` → `render-pack` |
+| **3b-execute** | optional | Applying | `render-execution` → `track add` → `track funnel` → `replan`; JD fit via `jd-analyze` |
+| **4-plan** | optional | **User chose one** matrix direction | `playbooks/4-plan.md` → `strategy.md` |
+| **5-stress-test** | optional | Plan done | `playbooks/5-stress-test.md` pre-mortem → revise `strategy.md` |
 
-**1-3 是主流程，终点是机会矩阵。** 4-5 只有用户想深入某个方向才进入，且必须由用户自己选定方向。
+**Stages 1–3 end at the opportunity matrix.** 4–5 only if the user wants to go deep on one direction they selected.
 
-## 怎么知道当前在哪一步
+## Where am I in the pipeline?
 
-运行 `uv run career-compass status`（或 `run` 不带 `--stage`）自动检测：
+Run `uv run career-compass status`:
 
-| 条件 | 阶段 |
-|------|------|
-| 无 `profile.yaml` 或 `validate` 报错误 | **1-intake** |
-| 画像齐了，`signals/` 空或不足 | **2-scan** |
-| 有画像+信号，无 `opportunities.yaml` / 未渲染 `.md` | **3-analyze** |
-| 机会矩阵已有，`strategy.md` 存在 | **4-plan**（可选） |
-| `opportunities.md` 已渲染 | **done**（主交付物完成） |
+| Condition | Stage |
+|-----------|-------|
+| No `profile.yaml` or `validate` errors | **1-intake** |
+| Profile OK, `signals/` empty or thin | **2-scan** |
+| Profile + signals, no `opportunities.yaml` / rendered `.md` | **3-analyze** |
+| Matrix exists, `strategy.md` present | **4-plan** (optional) |
+| `opportunities.md` rendered | **done** (core deliverable) |
 
-手动规则（与 status 一致）：
-- 看不到 `data/profile.yaml` 或 `validate` 报缺口 → **1-intake**
-- `data/signals/` 空 → **2-scan**
-- 有画像+信号但没有 `data/opportunities.yaml`/`.md` → **3-analyze**
-- 矩阵有了 → **交付物完成**。用户说"我想深入 X" → **4-plan**
-
-## Pipeline 命令
+## Pipeline commands
 
 ```bash
 uv run career-compass status
 uv run career-compass run [--stage STAGE]
 uv run career-compass match [--write-draft]
 uv run career-compass render-pack
-uv run career-compass render-execution      # Phase 3
-uv run career-compass track add "公司" "岗位" [--tier B] [--direction "..."]
+uv run career-compass render-execution
+uv run career-compass track add "Company" "Role" [--tier B] [--direction "..."]
 uv run career-compass track funnel
 uv run career-compass replan [--write]
 uv run career-compass jd-analyze jd.txt
 ```
 
-**Analyze 推荐**：`brief` → `match --write-draft` → playbook 3 审阅 → `render-opportunities` → `render-pack` → `render-execution`
+**Analyze path**: `brief` → `match --write-draft` → playbook 3 review → `render-opportunities` → `render-pack` → `render-execution`
 
-**Execute 推荐**：投递后用 `track` 记录，`funnel` 看转化，`replan --write` 反推修订。
+**Execute path**: log applications with `track`, check `funnel`, `replan --write` for revisions.
 
-详见 `docs/phase-3.md`。
+See `docs/phase-3.md`.
 
-## 铁律
+## Rules
 
-1. **每条优势必须有证据**。`validate` 会拦下没有证据的"擅长"。
-2. **每条外部信号必须有来源和日期**。模糊印象不算信号。
-3. **机会矩阵是交付物**，不是中间步骤。给出**几个**方向，**不要自动收敛到一个**。
-4. **不替用户选方向**。4-plan 只在用户明确选定后才进入。
-5. **改事实改 data/，改逻辑改 playbooks/**。矩阵数据改 `opportunities.yaml`，`.md` 是渲染结果。
-6. **constraints 是墙**，不是建议。违反约束的方向直接剔除。
+1. **Every strength needs evidence** — `validate` blocks unsupported claims.
+2. **Every external signal needs source and date** — vibes are not signals.
+3. **The opportunity matrix is the deliverable** — offer **several** directions; do not collapse to one.
+4. **Never choose for the user** — stage 4-plan only after explicit user choice.
+5. **Facts in `data/`, logic in `playbooks/`** — edit `opportunities.yaml`, re-render `.md`.
+6. **Constraints are walls** — violating options are removed, not down-ranked.
+
+Chinese skill doc: [SKILL.zh-CN.md](SKILL.zh-CN.md)

@@ -1,51 +1,55 @@
-# CLAUDE.md — 项目操作指南（Claude Code 打开本项目时自动加载）
+**English** | [简体中文](CLAUDE.zh-CN.md)
 
-本项目是 **北斗星**（代码库名 `career-compass`）：职业生涯决策引擎。当用户谈到职业规划 / 职业方向 / 求职决策 / 行业趋势 / 投递反馈时，运行北斗星工作流。
+# CLAUDE.md — Project instructions (auto-loaded when Claude Code opens this repo)
 
-## 北极星
+This project is **Beidou / 北斗星** (repo name `career-compass`): a pre-application career decision engine. When the user talks about career planning, direction choice, job search, industry trends, or application feedback, run the Beidou workflow.
 
-自动分析**用户画像 × 产业结构 × 行业趋势 × 市场竞争**，给出**精准、个性化、可执行**的求职定位与执行闭环。系统给排序后的选项和依据，**不替用户拍板**。
+## North star
 
-## 它是什么
+Analyze **profile × industry structure × trends × competition** and return **ranked, evidence-backed, actionable** positioning and execution options. The system **never** chooses for the user.
 
-用户关注的四块：**个人画像 · 行业趋势 · 职位收藏 · 机会矩阵**（App 与 CLI 同构）。
+## What it is
 
-- `src/career_compass/` —— Python CLI + macOS App（`career-compass-app`）
-- `playbooks/` —— 分析逻辑（Agent 驱动部分）
-- `data/` —— 用户唯一事实源（gitignore）
-- `data/examples/` —— 脱敏示例
+Four user-facing surfaces (App + CLI): **Profile · Trends · Saved jobs · Opportunity matrix**.
 
-## 工作流
+- `src/career_compass/` — Python CLI + macOS app (`career-compass-app`)
+- `playbooks/` — analysis logic (agent-driven; mostly Chinese scripts)
+- `data/` — single source of truth per user (gitignored)
+- `data/examples/` — sanitized samples
 
-1. **intake** — 引导式画像 → profile / narrative / constraints
-2. **scan** — scan-plan → new-signal
-3. **analyze** — brief → match --write-draft → 审阅 opportunities.yaml → render-opportunities / render-pack
-4. **execute（Phase 3）** — render-execution → track 投递 → funnel → replan
-5. **plan / stress-test** — 可选，用户选定方向后
+## Workflow
 
-**编排**: `status` / `run --stage`
+1. **intake** — guided profile → `profile.yaml`, `narrative.md`, `constraints.yaml`
+2. **scan** — `scan-plan` → web research → `new-signal`
+3. **analyze** — `brief` → `match --write-draft` → review `opportunities.yaml` → `render-opportunities` / `render-pack`
+4. **execute (Phase 3)** — `render-execution` → `track` applications → `funnel` → `replan`
+5. **plan / stress-test** — optional, only after user picks a direction
 
-## 命令速查
+**Orchestration**: `status` / `run --stage`
 
-| 命令 | 作用 |
-|---|---|
-| `status` / `run [--stage]` | 阶段检测与预检 |
+## Command cheat sheet
+
+| Command | Purpose |
+|---------|---------|
+| `status` / `run [--stage]` | Stage detection and preflight |
 | `validate` / `brief` / `scan-plan` / `new-signal` / `scan-projects` | intake + scan |
-| `match [--write-draft]` / `render-opportunities` / `render-pack` | analyze + 定位包 |
-| `render-execution` | 求职执行包（pitch/简历/投递策略） |
-| `track add/list/update/funnel` | 投递追踪 |
-| `job add/list/show/analyze/remove` | 感兴趣岗位库（收藏 JD）→ `saved_jobs.yaml` |
-| `jd-analyze <file>` | JD vs 画像缺口 |
+| `match [--write-draft]` / `render-opportunities` / `render-pack` | analyze + job pack |
+| `render-execution` | execution pack (pitch, resume hints, apply strategy) |
+| `track add/list/update/funnel` | application tracking |
+| `job add/list/show/analyze/remove` | saved JD watchlist → `saved_jobs.yaml` |
+| `jd-analyze <file>` | JD vs profile skill gaps |
 
-## 铁律
+## Rules
 
-- 优势挂证据；信号带来源+日期
-- 机会矩阵给几个方向，不自动收敛一个
-- constraints 是墙
-- 不手改渲染出来的 .md
+- Every strength needs evidence; every signal needs source + date
+- Opportunity matrix offers **several** directions — do not collapse to one
+- Constraints are **hard walls**, not soft penalties
+- Do not hand-edit rendered `.md` files; change YAML and re-render
 
-## 当前状态
+## Current status
 
-**v0.3 · Phase 1–3**。Industry Graph、Role Taxonomy、match、render-pack、render-execution、track、replan、jd-analyze 已可用。
+**v0.3 · Phases 1–3** — Industry graph, role taxonomy, match, render-pack, render-execution, track, replan, jd-analyze are available.
 
-文档: `docs/schema-v2.md`, `docs/matching-engine.md`, `docs/phase-3.md`, `SKILL.md`
+Docs: `docs/schema-v2.md`, `docs/matching-engine.md`, `docs/phase-3.md`, [SKILL.md](SKILL.md)
+
+Chinese agent guide: [CLAUDE.zh-CN.md](CLAUDE.zh-CN.md)

@@ -1,7 +1,7 @@
 [project]
 name = "career-compass"
 version = "0.3.0"
-description = "职业生涯决策引擎：画像 × 产业趋势 × 匹配引擎 → 求职定位与执行闭环"
+description = "Beidou (北斗星): pre-application career decision engine — profile × trends × match → opportunity matrix & execution loop"
 requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1.6",
