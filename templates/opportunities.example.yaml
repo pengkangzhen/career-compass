@@ -1,0 +1,43 @@
+# OpportunityMatrix —— 机会矩阵数据（本项目的核心交付物）。
+# 由 playbook 3-analyze 生成。改评分改本文件，再用 render-opportunities 渲染成 .md。
+# 这是【示例】两个方向，请用真实分析覆盖。
+
+generated_on: 2026-07-04
+
+directions:
+  - direction: "LLM 应用工程师（数据工程 + RAG 组合）"
+    fit: 高
+    fit_rationale: "数据管道能力(核心) × 刚学的 RAG/frontier 的组合稀缺；有从乱到治的证据"
+    match: 高
+    match_rationale: "四圈交集好：喜欢系统化、有技术深度、市场需要、薪酬上行；期权价值高"
+    wind: 顺风
+    wind_rationale: "signals/trends 显示 LLM 应用层需求增速快于供给"
+    risk: 可逆
+    risk_rationale: "第一步是副项目/学习，不辞职，符合 reversibility_bias=high"
+    composite: A
+    opens_up:
+      - "AI 产品方向的 tech lead"
+      - "平台/基础设施岗"
+      - "独立做 AI 产品的可能"
+    costs:
+      - "纯算法/研究方向的投入时间"
+      - "深耕传统数据工程的纵深"
+    first_step: "两周内用一个真实数据集做出端到端 RAG demo 并发布"
+
+  - direction: "数据工程 Tech Lead（纵深路线）"
+    fit: 高
+    fit_rationale: "现有能力直接复用，比较优势明显"
+    match: 中
+    match_rationale: "擅长且稳定，但 energized_by 里的'新东西/学习'满足度低；期权价值中等"
+    wind: 弱顺风
+    wind_rationale: "需求稳但增速放缓，供给充足，薪酬平稳"
+    risk: 可逆
+    risk_rationale: "内部晋升/平跳皆可逆"
+    composite: B
+    opens_up:
+      - "数据总监"
+      - "跨团队架构师"
+    costs:
+      - "AI 方向的早期红利窗口"
+      - "技术栈多元化的机会"
+    first_step: "找现任数据 TL 做 3 次 coffee chat，摸清真实日常与痛点"

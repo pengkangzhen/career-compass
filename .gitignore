@@ -1,0 +1,29 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# 个人数据（唯一事实源 —— 永不入库；首次使用从 templates/ 拷贝）
+data/profile.yaml
+data/narrative.md
+data/constraints.yaml
+data/opportunities.yaml
+data/opportunities.md
+data/strategy.md
+data/signals/*
+!data/signals/.gitkeep
+
+# 环境变量 / 密钥
+.env
+.env.*
+
+# 系统 / IDE
+.DS_Store
+.idea/
+.vscode/

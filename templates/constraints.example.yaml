@@ -1,0 +1,16 @@
+# Constraints —— 硬边界。分析阶段必须把这些当不可移动的墙，不能产出违反它们的方案。
+
+geo:
+  - "上海"            # 可接受的地点；远程/异地要在这里写清
+visa: null            # 如有签证限制写这里，没有写 null
+family: "已婚，伴侣工作地在上海，短期不愿异地"   # 家庭约束；没有写 null
+
+# 不工作能撑几个月 —— 决定你能承受多大转型风险。
+financial_runway_months: 9
+
+# low=只接受低风险路径 | medium=可承担有对冲的风险 | high=愿意 all-in 某方向
+risk_appetite: medium
+
+# high=偏好"先试可逆的小步、验证后再加大投入"
+# low =愿意直接 commit 到一条长期路径
+reversibility_bias: high

@@ -1,0 +1,62 @@
+# Profile —— 你的结构化画像（唯一事实源）。
+# 改画像只改本文件，不要去改 strategy.md（那是推导结果）。
+# 这是【示例】，请用自己的真实信息覆盖，删除注释提示。
+
+name: "Alex（示例，请替换）"
+current_role: "数据工程师"
+
+education:
+  - degree: "硕士"
+    major: "计算机科学"
+    school: "某大学"
+    year: 2021
+    ranking_or_gpa: "前 10%"
+
+experience:
+  - company: "某电商平台"
+    role: "数据工程师"
+    period: "2021.07-至今"
+    scope: "负责推荐系统的离线特征管道与数据质量"
+    quantified_outcomes:
+      - "把特征产出延迟从 6h 降到 1h"
+      - "数据质量事故从月均 4 次降到 0"
+
+# 技能分三层。诚实分层比堆名词有用：core 是真能教别人的，frontier 是刚学的。
+skills:
+  core:
+    - "Python / SQL"
+    - "Spark / 离线数据管道"
+    - "数据建模与质量治理"
+  adjacent:
+    - "Airflow / 调度"
+    - "dbt"
+    - "AWS 数据服务"
+  frontier:
+    - "LLM 应用 / RAG"
+    - "向量数据库"
+
+# 每条优势必须挂一个客观证据，过滤掉自我感觉良好。
+# 没有证据的"擅长"不算数 —— 这是本工具最重要的纪律。
+strength_evidence:
+  - claim: "能把混乱的数据流程规范化"
+    proof: "入职半年主导重写特征管道，事故清零、延迟降 5/6"
+  - claim: "能独立从 0 到 1 搭起一套系统"
+    proof: "独自设计了公司第一套数据质量监控，仍在线上运行"
+  - claim: "跨界学习快"
+    proof: "两个月内把 RAG 从零做到内部 demo 可用"
+
+preferences:
+  energized_by:
+    - "从乱到治的系统化工作"
+    - "技术深度"
+    - "可见的业务影响"
+  drained_by:
+    - "重复运维"
+    - "扯皮式协作"
+  # 价值排序驱动取舍：把最重要的放前面。冲突时按此取舍。
+  values_ranked:
+    - "learning"      # 成长/新东西
+    - "impact"        # 业务影响
+    - "autonomy"      # 自主权
+    - "money"
+    - "stability"
