@@ -1,5 +1,9 @@
 """北斗星 GUI entry."""
 
-from .app import main
-
 __all__ = ["main"]
+
+
+def main() -> None:
+    from .app import main as _main
+
+    _main()

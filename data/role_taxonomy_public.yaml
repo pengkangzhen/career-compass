@@ -1,0 +1,206 @@
+# 体制内 / 公共部门岗位族 —— 与 role_taxonomy.yaml 合并加载
+# capability_id × employer_type_id 构成 cross_matrix 单元
+
+role_families:
+  # --- OR / 供应链 × 央企 ---
+  - id: or_engineer_central_soe
+    capability_id: sc_optimization
+    employer_type_id: central_soe
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "央企供应链 / 物流优化工程师"
+    typical_seniority: "1-5年 / 博士"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+      - "MIP"
+    nice_to_have:
+      - "Gurobi"
+      - "仿真"
+    entry_mechanism: "央企校园招聘 / 社会招聘"
+    skill_transfer_default: "高"
+    hard_gates: []
+    typical_companies:
+      A: ["中远海运科技", "中国物流集团"]
+      B: ["招商局港口", "国家能源集团数字化"]
+      C: ["央企三级子公司"]
+
+  - id: or_engineer_local_soe
+    capability_id: sc_optimization
+    employer_type_id: local_soe
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "地方国企港口 / 物流优化岗"
+    typical_seniority: "1-5年"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+    nice_to_have:
+      - "MIP"
+    entry_mechanism: "地方国企招聘 / 人才引进"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["辽宁港口集团", "山东港口集团"]
+      B: ["各省交投物流"]
+      C: ["城投供应链平台"]
+
+  # --- OR+ML × 央企 ---
+  - id: or_ml_central_soe
+    capability_id: or_ml_hybrid
+    employer_type_id: central_soe
+    industry_id: or_supply_chain
+    subsector_id: pricing_revenue
+    value_chain_node_id: or_ml_hybrid
+    role: "央企 OR+ML / 智慧调度工程师"
+    typical_seniority: "博士 / 1-3年"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "强化学习"
+    entry_mechanism: "央企数字化专项 / 校招"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["中远海运", "国家电网调度"]
+      B: ["央企能源物流"]
+      C: ["央企研究院转化"]
+
+  # --- 决策 Agent × 民企 / 央企 ---
+  - id: decision_agent_private
+    capability_id: decision_agent_or
+    employer_type_id: private
+    industry_id: ai_llm
+    subsector_id: llm_apps
+    value_chain_node_id: rag_agent
+    role: "决策智能 Agent 工程师"
+    typical_seniority: "博士实习 / 1-3年"
+    required_skills:
+      - "Python"
+      - "LLM"
+      - "运筹优化"
+    nice_to_have:
+      - "LangGraph"
+      - "PyTorch"
+    entry_mechanism: "实习 / 校招 / 社会招聘"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["字节", "阿里通义", "DeepSeek"]
+      B: ["顺丰科技", "京东物流 AI"]
+      C: ["垂直 SaaS"]
+
+  - id: decision_agent_central_soe
+    capability_id: decision_agent_or
+    employer_type_id: central_soe
+    industry_id: ai_llm
+    subsector_id: llm_apps
+    value_chain_node_id: rag_agent
+    role: "央企智慧物流 / 决策 AI 工程师"
+    typical_seniority: "博士 / 1-3年"
+    required_skills:
+      - "Python"
+      - "运筹优化"
+      - "LLM"
+    nice_to_have:
+      - "LangGraph"
+    entry_mechanism: "央企数字化 / 联合课题"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["中远海运科技", "华为港航大模型生态"]
+      B: ["招商局数字化"]
+      C: ["央企信息化部门"]
+
+  # --- 高校教职 / 科研院所 ---
+  # Schema 2.3：按 institution_tier 拆分教职格 —— 211/985 有第一学历门槛，普通本科没有
+  - id: academia_faculty_211
+    capability_id: academia_research
+    employer_type_id: public_institution
+    employer_subtype: "university_faculty"
+    institution_tier: "211"
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "高校物流 / 交通教职（211 研究型）"
+    typical_seniority: "博士 / 博后"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+    nice_to_have:
+      - "机器学习"
+    entry_mechanism: "教职招聘 / 博士后 / 人才引进"
+    skill_transfer_default: "高"
+    hard_gates: ["第一学历门槛", "论文数量与质量", "年龄线（青基/博新）"]
+    typical_companies:
+      A: ["大连海事大学", "上海海事大学", "同济大学交通"]
+      B: ["211 交通物流学院"]
+      C: ["二本学院科研岗"]
+
+  - id: academia_faculty_general
+    capability_id: academia_research
+    employer_type_id: public_institution
+    employer_subtype: "university_faculty"
+    institution_tier: "普通本科"
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "普通本科高校物流 / 交通教职"
+    typical_seniority: "博士 / 博后"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+    nice_to_have:
+      - "机器学习"
+    entry_mechanism: "教职招聘 / 人才引进"
+    skill_transfer_default: "高"
+    hard_gates: ["论文"]
+    typical_companies:
+      A: ["山东交通学院", "上海海事大学（临港）"]
+      B: ["各省交通学院"]
+      C: ["高职物流系"]
+
+  - id: research_institute_or
+    capability_id: applied_research
+    employer_type_id: public_institution
+    employer_subtype: "research_institute"
+    institution_tier: "科研院所"
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "科研院所应用研究员（交通 / 物流）"
+    typical_seniority: "博士"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+    nice_to_have:
+      - "机器学习"
+    entry_mechanism: "事业单位招聘 / 课题聘"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["交科院", "水运科学研究院"]
+      B: ["省市交通规划院"]
+      C: ["港口技术中心"]
+
+  # --- 公务员 ---
+  - id: civil_service_transport
+    capability_id: policy_admin
+    employer_type_id: civil_service
+    employer_subtype: "civil_service_admin"
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "交通 / 海事 / 海关类公务员"
+    typical_seniority: "应届 / 社会"
+    required_skills:
+      - "行测"
+      - "申论"
+    nice_to_have:
+      - "专业背景对口"
+    entry_mechanism: "国考 / 省考 / 选调"
+    skill_transfer_default: "低"
+    hard_gates: ["年龄上限", "专业目录", "基层服务年限"]
+    typical_companies:
+      A: ["交通运输部", "海关总署"]
+      B: ["省交通厅", "海事局"]
+      C: ["地市交通局"]

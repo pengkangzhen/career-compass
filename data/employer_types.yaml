@@ -1,0 +1,66 @@
+# 雇主性质轴 —— 与能力/行业方向正交（Schema 2.2）
+# analyze 阶段 cross_matrix 的列轴；constraints.employer_preference 过滤此列表
+#
+# Schema 2.3：每个 employer_type 下有更细的 employer_subtype（资格闸门匹配用），
+# 不拆分顶层 6 列。subtype 见 role_taxonomy_public.yaml 的 employer_subtype 字段：
+#   private            -> private_tech / private_app / ...
+#   foreign            -> foreign_tech / ...
+#   central_soe        -> soe_tech / soe_admin / ...
+#   local_soe          -> soe_local_tech / ...
+#   public_institution -> university_faculty / research_institute / public_unit_technical / postdoc_station
+#   civil_service      -> civil_service_admin / civil_service_tech / ...
+
+employer_types:
+  - id: private
+    name: "民企 / 互联网 / 独角兽"
+    stability: low
+    ceiling: high
+    value_is_in: "市场化薪酬、技术迭代快、项目落地周期短"
+    trap: "内卷、35 岁焦虑、业务波动与裁员"
+    entry_paths: ["社会招聘", "校园招聘", "内推"]
+    typical_orgs: ["字节", "阿里", "顺丰科技", "AI 创业公司"]
+
+  - id: foreign
+    name: "外资 / 合资"
+    stability: medium
+    ceiling: high
+    value_is_in: "规范流程、国际化视野、部分岗位薪酬上限高"
+    trap: "本土化收缩、headcount 冻结、螺丝钉化"
+    entry_paths: ["社会招聘", "校园招聘", "猎头"]
+    typical_orgs: ["马士基", "DHL", "麦肯锡 OR 团队", "跨国 pharma"]
+
+  - id: central_soe
+    name: "央企"
+    stability: high
+    ceiling: medium
+    value_is_in: "平台资源、行业话语权、重大课题、户口/稳定性（视单位）"
+    trap: "行政化、创新节奏慢、技术岗边缘化或论资排辈"
+    entry_paths: ["校园招聘", "社会招聘", "博士专项"]
+    typical_orgs: ["中远海运", "招商局", "中国物流集团", "国家能源集团"]
+
+  - id: local_soe
+    name: "地方国企"
+    stability: high
+    ceiling: low
+    value_is_in: "区域垄断资源、本地生活稳定、部分港口/交通数字化需求"
+    trap: "薪酬天花板低、关系网络、技术投入有限"
+    entry_paths: ["校园招聘", "社会招聘", "地方人才引进"]
+    typical_orgs: ["各省港口集团", "地方铁路/机场集团", "城投物流平台"]
+
+  - id: public_institution
+    name: "事业编（高校 / 科研院所 / 事业单位）"
+    stability: high
+    ceiling: medium
+    value_is_in: "学术自由、长期课题、教职/研究员身份、政策咨询接口"
+    trap: "薪酬低于工业界、非升即走、行政事务占比高"
+    entry_paths: ["教职招聘", "博士后", "事业单位公开招考", "人才引进"]
+    typical_orgs: ["211/双一流高校", "交科院", "水运院", "港口管理局下属事业单位"]
+
+  - id: civil_service
+    name: "公务员"
+    stability: high
+    ceiling: low
+    value_is_in: "稳定、社会身份、政策制定参与、部分岗位有话语权"
+    trap: "与专业技术脱节、基层锻炼年限、技能迁移度低"
+    entry_paths: ["国考", "省考", "选调生", "参公管理"]
+    typical_orgs: ["交通运输部", "海关", "海事局", "省交通厅"]

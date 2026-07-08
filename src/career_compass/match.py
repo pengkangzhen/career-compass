@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from pathlib import Path
 from typing import Iterable
 
+from .eligibility import (
+    apply_composite_cap,
+    composite_to_hiring_fit,
+    evaluate_eligibility,
+)
 from .schema import (
+    CapabilityAxis,
     Constraints,
+    EmployerAxis,
+    EmployerTypesFile,
     IndustryGraph,
+    MatrixCell,
     Opportunity,
+    OpportunityMatrix,
     Profile,
     ProjectsFile,
     RoleFamily,
@@ -25,9 +36,8 @@ from .schema import (
     is_placeholder,
 )
 
-# geo / 出海标记（constraints.geo 未包含时硬过滤）
-_OVERSEAS_MARKERS = ("海外", "硅谷", "美国", "欧洲", "出国", "abroad", "relocation", "博后（海外")
-_DOMESTIC_ONLY_VISA = ("国内", "无出国", "不出国", "仅国内")
+# Schema 2.3 资格闸门规则文件（match 阶段加载；缺失则放行）
+_ELIGIBILITY_RULES_FILENAME = "hiring_eligibility_rules.yaml"
 
 # 技能别名/子串匹配（中英混排）
 _SKILL_ALIASES: dict[str, tuple[str, ...]] = {
@@ -216,23 +226,6 @@ def _is_shallow_node(trap: str, role: TaxonomyRoleFamily) -> bool:
     return False
 
 
-def _geo_allows_overseas(constraints: Constraints) -> bool:
-    """geo 或 notes 是否允许出海/异地。"""
-    if constraints.geo and not any(is_placeholder(g) for g in constraints.geo):
-        geo_blob = " ".join(constraints.geo).lower()
-        if any(k in geo_blob for k in ("海外", "出国", "全球", "remote", "远程")):
-            return True
-    notes = (constraints.notes or "").lower()
-    if any(k in notes for k in ("出海", "出国", "海外可选")):
-        return True
-    return False
-
-
-def _role_requires_overseas(role_family: TaxonomyRoleFamily) -> bool:
-    blob = f"{role_family.role} {role_family.typical_seniority} {' '.join(role_family.required_skills)}"
-    return any(m in blob for m in _OVERSEAS_MARKERS)
-
-
 def skill_match_level(
     required: str,
     profile: Profile,
@@ -257,17 +250,6 @@ def passes_constraints(
     # 财务 runway 过短 → 剔除博士/博后级长周期岗
     if constraints.financial_runway_months and constraints.financial_runway_months < 6:
         if re.search(r"博士|博后", role_family.typical_seniority):
-            return False
-
-    # geo：未声明出海则剔除明显海外岗
-    if constraints.geo and not any(is_placeholder(g) for g in constraints.geo):
-        if _role_requires_overseas(role_family) and not _geo_allows_overseas(constraints):
-            return False
-
-    # visa / family：国内限定
-    visa = (constraints.visa or "").lower()
-    if visa and any(k in visa for k in _DOMESTIC_ONLY_VISA):
-        if _role_requires_overseas(role_family):
             return False
 
     return True
@@ -418,3 +400,361 @@ def generate_candidate_opportunities(
                 selected.append(o)
 
     return selected[:max_count]
+
+
+# ---------- Schema 2.2 正交矩阵（能力 × 雇主性质）----------
+
+_CAPABILITY_LABELS: dict[str, str] = {
+    "sc_optimization": "供应链 / 物流优化",
+    "or_ml_hybrid": "OR+ML 混合工程",
+    "decision_agent_or": "决策智能 Agent（OR × LLM）",
+    "llm_agent_app": "LLM / Agent 应用",
+    "ai_training": "MLE / 模型训练",
+    "academia_research": "高校教职 / 科研",
+    "applied_research": "科研院所应用研究",
+    "policy_admin": "政策 / 综合管理（公务员）",
+}
+
+
+def capability_id_for_role(role_family: TaxonomyRoleFamily) -> str:
+    if role_family.capability_id:
+        return role_family.capability_id
+    return role_family.value_chain_node_id or role_family.id
+
+
+def capability_label(capability_id: str, fallback_role: str = "") -> str:
+    return _CAPABILITY_LABELS.get(capability_id) or fallback_role or capability_id
+
+
+def passes_employer_scope(role_family: TaxonomyRoleFamily, constraints: Constraints) -> bool:
+    allowed = constraints.allowed_employer_ids()
+    return role_family.employer_type_id in allowed
+
+
+def _employer_composite_boost(employer_id: str, constraints: Constraints) -> float:
+    pref = constraints.employer_preference
+    if not pref.priority:
+        return 0.0
+    if employer_id not in pref.priority:
+        return -0.03 if pref.strong_preference else 0.0
+    idx = pref.priority.index(employer_id)
+    n = len(pref.priority)
+    return 0.1 * (n - idx) / n
+
+
+def _skill_transfer_for_role(
+    role_family: TaxonomyRoleFamily,
+    match_score: float,
+) -> tuple[str, str]:
+    if role_family.skill_transfer_default:
+        level = role_family.skill_transfer_default
+        return level, f"taxonomy 默认技能迁移度: {level}"
+    if role_family.employer_type_id == "civil_service":
+        return "低", "公务员路径以行测/申论/行政能力为主，专业技术迁移有限"
+    if match_score >= 0.7:
+        return "高", f"岗位 required_skills 与画像对齐 {match_score:.0%}"
+    if match_score >= 0.45:
+        return "中", f"部分技能可迁移，需补缺口（对齐度 {match_score:.0%}）"
+    return "低", f"技能栈偏离较大（对齐度 {match_score:.0%}）"
+
+
+def _apply_public_sector_gates(
+    role_family: TaxonomyRoleFamily,
+    constraints: Constraints,
+    composite: str,
+    costs: list[str],
+) -> str:
+    """L5：体制内硬门槛 → 可能下调 composite。"""
+    gates = constraints.public_sector_gates
+    emp = role_family.employer_type_id
+    if emp not in ("civil_service", "public_institution", "central_soe", "local_soe"):
+        return composite
+
+    penalty = 0
+    if constraints.age and constraints.age >= 35 and emp == "civil_service":
+        costs.append("年龄接近/超过部分公务员岗位上限")
+        penalty += 1
+    if emp == "civil_service" and gates.accept_exam_prep_months is not None:
+        if gates.accept_exam_prep_months < 6:
+            costs.append("备考窗口 <6 个月，公务员路径试错成本高")
+            penalty += 1
+    if gates.accept_non_research_roles is False and emp == "civil_service":
+        costs.append("用户不接受非研究/行政综合岗")
+        penalty += 1
+
+    if penalty >= 2:
+        return _composite_downgrade(composite)
+    if penalty == 1:
+        return _composite_downgrade(composite) if composite in ("A", "B") else composite
+    return composite
+
+
+def _composite_downgrade(composite: str) -> str:
+    order = ["A", "B", "C", "D", "E", "F"]
+    try:
+        i = order.index(composite.upper())
+    except ValueError:
+        return composite
+    return order[min(i + 1, len(order) - 1)]
+
+
+def _build_matrix_cell(
+    capability_id: str,
+    employer_id: str,
+    role_family: TaxonomyRoleFamily,
+    scored: dict,
+    match_score: float,
+    graph: IndustryGraph,
+    signals: dict[str, list[Signal]],
+    constraints: Constraints,
+    profile: Profile,
+    eligibility_result,
+) -> MatrixCell:
+    node = graph.find_node(
+        role_family.industry_id,
+        role_family.subsector_id,
+        role_family.value_chain_node_id,
+    )
+    trap = node.trap if node else ""
+    node_name = node.name if node else role_family.value_chain_node_id
+    industry_name = graph.industry_name(role_family.industry_id)
+    shallow = _is_shallow_node(trap, role_family)
+
+    if shallow:
+        match_score = max(0.0, match_score - 0.15)
+
+    comp_label = estimate_competition_index(role_family, signals)
+    comp_float = competition_label_to_float(comp_label)
+    fit = _level_label(match_score)
+    wind, wind_rationale = _wind_from_signals(industry_name, signals)
+    risk = "低" if constraints.reversibility_bias == "high" else "高"
+    costs: list[str] = []
+    composite = _composite_from_scores(
+        match_score + _employer_composite_boost(employer_id, constraints),
+        fit, wind, risk, comp_label, shallow,
+    )
+    composite = _apply_public_sector_gates(role_family, constraints, composite, costs)
+
+    if shallow and trap:
+        costs.append(f"浅层陷阱: {trap}")
+    if comp_label == "high":
+        costs.append("竞争密度偏高，需差异化叙事")
+    if role_family.hard_gates:
+        costs.append(f"硬门槛: {', '.join(role_family.hard_gates[:3])}")
+
+    skill_transfer, st_rationale = _skill_transfer_for_role(role_family, match_score)
+    if skill_transfer == "低" and composite in ("A", "B"):
+        composite = _composite_downgrade(composite)
+
+    # Schema 2.3 资格闸门 —— 在 composite 所有 domain-fit 调整之后封顶
+    elig_status = eligibility_result.status
+    composite = apply_composite_cap(composite, eligibility_result.composite_cap)
+    if elig_status != "pass":
+        costs.append(
+            f"资格关[{elig_status}]: {eligibility_result.rationale}"
+            + (f"（规则: {', '.join(eligibility_result.rules_matched)}）"
+               if eligibility_result.rules_matched else "")
+        )
+
+    role_snap = RoleFamily(
+        role=role_family.role,
+        seniority=role_family.typical_seniority,
+        match_score=match_score,
+        competition_index=comp_float,
+    )
+
+    return MatrixCell(
+        capability_id=capability_id,
+        employer_id=employer_id,
+        fit=fit,
+        fit_rationale=(
+            f"技能覆盖 {match_score:.0%}；岗位: {role_family.role}；"
+            f"价值链: {node.value_is_in if node else '—'}"
+        ),
+        match=fit,
+        match_rationale="Ikigai+期权 heuristic：core/adjacent 与岗位 required_skills 对齐度",
+        wind=wind,
+        wind_rationale=wind_rationale,
+        risk=risk,
+        risk_rationale="结合 constraints.reversibility_bias 默认",
+        composite=composite,
+        opens_up=[f"{industry_name} · {node_name} · {employer_id}"],
+        costs=costs,
+        first_step=(
+            f"针对 {role_family.role}（{employer_id}）: "
+            + (scored["skill_gaps"][0].skill if scored["skill_gaps"] else role_family.entry_mechanism or "调研入口")
+        ),
+        role_families=[role_snap],
+        skill_gaps=scored["skill_gaps"],
+        competition_index=comp_float,
+        entry_mechanism=role_family.entry_mechanism,
+        hard_gates=list(role_family.hard_gates),
+        skill_transfer=skill_transfer,
+        skill_transfer_rationale=st_rationale,
+        # Schema 2.3 资格闸门字段
+        eligibility=elig_status,
+        eligibility_rationale=eligibility_result.rationale,
+        domain_fit=fit,
+        hiring_fit=eligibility_result.hiring_fit,
+        blocked=eligibility_result.blocked,
+        institution_tier=role_family.institution_tier,
+        employer_subtype=role_family.employer_subtype,
+        eligibility_rules=list(eligibility_result.rules_matched),
+    )
+
+
+def generate_orthogonal_matrix(
+    profile: Profile,
+    constraints: Constraints,
+    graph: IndustryGraph,
+    roles: RoleTaxonomy,
+    employer_types: EmployerTypesFile,
+    signals: dict[str, list[Signal]],
+    projects: ProjectsFile | None = None,
+    *,
+    min_capabilities: int = 4,
+    max_capabilities: int = 7,
+    eligibility_rules_path: Path | None = None,
+) -> OpportunityMatrix:
+    """生成 Schema 2.2 正交机会矩阵：capability_axes × employer_axes → cross_matrix。
+
+    Schema 2.3：每个候选 role_family 先过资格闸门（EligibilityGate）；fail 的 cell
+    在 strong_preference 时被剔除，否则保留但 blocked=True 且 composite 封顶 D。
+    """
+    from .eligibility import load_eligibility_rules
+
+    allowed_employers = constraints.allowed_employer_ids()
+    emp_map = employer_types.by_id()
+
+    # 资格规则加载（缺失则放行）
+    rules = None
+    rules_path = eligibility_rules_path
+    if rules_path is None:
+        # 默认从 data 目录找；调用方可显式传入
+        default_data = Path.cwd() / "data" / _ELIGIBILITY_RULES_FILENAME
+        if default_data.exists():
+            rules_path = default_data
+    if rules_path and rules_path.exists():
+        rules = load_eligibility_rules(rules_path).rules
+
+    strong_pref = constraints.employer_preference.strong_preference
+
+    # (capability_id, employer_type_id) -> (match_score, role_family, scored, eligibility_result)
+    best: dict[tuple[str, str], tuple[float, TaxonomyRoleFamily, dict, object]] = {}
+
+    for rf in roles.role_families:
+        if not passes_employer_scope(rf, constraints):
+            continue
+        cap_id = capability_id_for_role(rf)
+        emp_id = rf.employer_type_id
+        scored = score_profile_vs_role(profile, projects, rf)
+        match_score = scored["match_score"]
+        if not passes_constraints(rf, constraints, match_score):
+            continue
+
+        # 资格闸门 —— 在 composite 之前判定
+        elig = evaluate_eligibility(
+            rf, profile, constraints,
+            typical_companies=rf.typical_companies.get("A", []),
+            rules=rules,
+        )
+        # strong_preference 时，资格关 fail 直接剔除（不进矩阵）
+        if strong_pref and elig.blocked:
+            continue
+
+        key = (cap_id, emp_id)
+        prev = best.get(key)
+        # 同 (cap, emp) 多 role 时取分高；并列时取资格更严者（让门槛显形）
+        if prev is None or match_score > prev[0]:
+            best[key] = (match_score, rf, scored, elig)
+        elif match_score == prev[0]:
+            # 并列：若新 role 资格更严（fail>review>pass），优先取新 role 让门槛可见
+            _rank = {"pass": 0, "review": 1, "fail": 2}
+            if _rank[elig.status] > _rank[prev[3].status]:
+                best[key] = (match_score, rf, scored, elig)
+
+    # 能力轴：按该能力下最佳 match 排序
+    cap_scores: dict[str, float] = {}
+    for (cap_id, _), (ms, _, _, _) in best.items():
+        cap_scores[cap_id] = max(cap_scores.get(cap_id, 0.0), ms)
+    ranked_caps = sorted(cap_scores.keys(), key=lambda c: -cap_scores[c])[:max_capabilities]
+    if len(ranked_caps) < min_capabilities:
+        ranked_caps = sorted(cap_scores.keys(), key=lambda c: -cap_scores[c])
+
+    capability_axes: list[CapabilityAxis] = []
+    for cap_id in ranked_caps:
+        sample = next(rf for (c, _), (_, rf, _, _) in best.items() if c == cap_id)
+        node = graph.find_node(sample.industry_id, sample.subsector_id, sample.value_chain_node_id)
+        capability_axes.append(CapabilityAxis(
+            id=cap_id,
+            name=capability_label(cap_id, sample.role),
+            summary=node.value_is_in if node else "",
+            industry=graph.industry_name(sample.industry_id),
+            value_chain_node=node.name if node else sample.value_chain_node_id,
+        ))
+
+    employer_axes: list[EmployerAxis] = [
+        EmployerAxis(
+            id=e.id,
+            name=e.name,
+            stability=e.stability,
+            ceiling=e.ceiling,
+            value_is_in=e.value_is_in,
+            trap=e.trap,
+            entry_paths=list(e.entry_paths),
+            typical_orgs=list(e.typical_orgs),
+        )
+        for e in employer_types.employer_types
+        if e.id in allowed_employers
+    ]
+    if constraints.employer_preference.priority:
+        pri = {eid: i for i, eid in enumerate(constraints.employer_preference.priority)}
+        employer_axes.sort(key=lambda ax: pri.get(ax.id, 99))
+
+    # 每个雇主轴至少保留一个能力行（避免公务员/事业编列全空）
+    for emp_ax in employer_axes:
+        emp_entries = [
+            (ms, capability_id_for_role(rf))
+            for (cap, emp), (ms, rf, _, _) in best.items()
+            if emp == emp_ax.id
+        ]
+        if not emp_entries:
+            continue
+        emp_entries.sort(key=lambda x: -x[0])
+        ms_best, cap_id = emp_entries[0]
+        if cap_id not in ranked_caps:
+            ranked_caps.append(cap_id)
+            rf = next(
+                rf for (c, emp), (_, rf, _, _) in best.items()
+                if emp == emp_ax.id and c == cap_id
+            )
+            node = graph.find_node(rf.industry_id, rf.subsector_id, rf.value_chain_node_id)
+            capability_axes.append(CapabilityAxis(
+                id=cap_id,
+                name=capability_label(cap_id, rf.role),
+                summary=node.value_is_in if node else "",
+                industry=graph.industry_name(rf.industry_id),
+                value_chain_node=node.name if node else rf.value_chain_node_id,
+            ))
+
+    cross_matrix: list[MatrixCell] = []
+    for cap_id in ranked_caps:
+        for emp_ax in employer_axes:
+            key = (cap_id, emp_ax.id)
+            entry = best.get(key)
+            if not entry:
+                continue
+            ms, rf, scored, elig = entry
+            cross_matrix.append(_build_matrix_cell(
+                cap_id, emp_ax.id, rf, scored, ms, graph, signals, constraints,
+                profile, elig,
+            ))
+
+    matrix = OpportunityMatrix(
+        generated_on=date.today(),
+        capability_axes=capability_axes,
+        employer_axes=employer_axes,
+        cross_matrix=cross_matrix,
+        primary=[],  # 由 synthesized_primary() 按需生成（跳过 blocked）
+    )
+    return matrix

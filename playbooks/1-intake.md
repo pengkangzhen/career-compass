@@ -8,6 +8,7 @@
 1. **先开放聊**：用 2-3 个宽问题热身（"现在什么阶段、最近在琢磨什么、来这里想解决什么"），让用户自然讲，别一上来甩表或逐项问。
 2. **边听边填表**：从用户的讲述里**主动提取**结构化信息，直接写进 `data/profile.yaml`（先 `cp templates/profile.example.yaml data/profile.yaml` 再覆盖填，或新建）。**用户只负责说，你负责结构化。**
    - **教育背景必采**：本 / 硕 / 博 **院校全名**、**专业**、**学院**（如有）、**起止年份**、**在读/已毕业**；`school_tier` 单独记 985/211/双一流/一本/二本/海外，**不要把「211」「二本」写在 school 里**。
+   - **本科 `school_tier` 是资格闸门关键字段，必采**；二本/三本要如实记，影响教职/头部研究院推荐（211/985 教职格会因第一学历门槛被 blocked）。
    - 博士在读：补 `thesis_or_focus`、`advisor`（可选）、预计毕业年 `end_year`。
 3. **针对缺口引导追问**：跑 `uv run career-compass validate`，针对它报的缺口（以及你判断的关键缺口，如 values / constraints）做**精准追问**，不一刀切逐项审问。
 4. **每条优势只问一句证据**：用户说"我擅长 X"，你就问"给一个最能让陌生人信服的例子或数字"，不纠缠。
@@ -18,8 +19,9 @@
 
 1. **没有证据的"擅长"不入库。** `strength_evidence` 的 `proof` 必须是事件/数字/可核验结果。引导时自然地问出证据，但必须有。
 2. **技能要分层**（core / adjacent / frontier），别堆名词。用户说"什么都会一点"时，帮 ta 诚实分层。
-3. **constraints 是墙**（地域 / 签证 / 家庭 / runway / 风险偏好 / 年龄），聊到就如实记，不漏。
-4. **values 要排出来**（learning / impact / autonomy / money / stability / family / research / status）。排不清时用"二选一"逼一下（"impact 和 autonomy 只能保一个，你选哪个"）。
+3. **constraints 是墙**（家庭 / runway / 风险偏好 / 年龄 / **雇主性质**），聊到就如实记，不漏。**注意：就业地域(geo)/签证/户口不属于择业方向约束，北斗星不收集、不过滤**——那是用户拿到方向后具体择业阶段的事。
+4. **values 由你推断，不逼用户排序**（learning / impact / autonomy / money / stability / family / research / status）。从背景信号推断写入 `preferences.values_ranked`：读博/在读 = research/learning 靠前；有量化业务成果 = impact 靠前；急于变现表述 = money 靠前。**不要用"二选一"逼用户排序**——用户因迷茫才来，看完机会矩阵再校准。
+5. **雇主性质不预设问（Schema 2.2）**：intake 阶段 `employer_preference.strong_preference` 默认 `false`、include 全部雇主类型，让矩阵按 composite 自然排序。**不要预先问"你考虑央企/民企/外企吗"**——用户看完矩阵、对方向有判断后，再回填强偏好做剔除。
 
 ## narrative.md 写什么
 

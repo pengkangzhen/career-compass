@@ -1,4 +1,4 @@
-"""北斗星 macOS 桌面 App — 用户关注四块：画像 / 趋势 / 收藏 / 矩阵。"""
+"""北斗星 — 对话 intake（GUI）+ 画像 / 趋势 / 收藏 / 矩阵查看。与编码助手 Skill intake 等价，共用 data/。"""
 from __future__ import annotations
 
 import html
@@ -8,11 +8,15 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-import webview
 import yaml
 
+from career_compass.gui.chat_ui import CHAT_EXTRA_SCRIPT, CHAT_EXTRA_STYLES, CHAT_PANEL_HTML
 from career_compass.gui.md import content_page, render_markdown
-from career_compass.pipeline import run_validation
+from career_compass.gui.platform import webview_gui
+from career_compass.intake import IntakeEngine, get_llm_config
+from career_compass.intake.preview import build_intake_status
+from career_compass.journey import build_journey_status
+from career_compass.pipeline import detect_stage, run_validation
 from career_compass.schema import (
     EducationStatus,
     load_constraints,
@@ -37,6 +41,10 @@ def _find_repo_root() -> Path:
         if (parent / "pyproject.toml").exists() and (parent / "src" / "career_compass").exists():
             return parent
     return cwd
+
+
+def _templates_dir() -> Path:
+    return _find_repo_root() / "templates"
 
 
 def _app_icon_path() -> str | None:
@@ -87,7 +95,8 @@ def _load_profile_html(data_dir: Path) -> str:
 
     if not profile_path.exists():
         return content_page(
-            "<p class='empty'>尚无个人画像。请在 intake 阶段填写 <code>data/profile.yaml</code>。</p>"
+            "<p class='empty'>尚无个人画像。请在「<strong>对话</strong>」Tab 开始「认识自己」，"
+            "或在 Claude Code / Cursor 中说「帮我做职业规划」。</p>"
         )
 
     profile = load_profile(profile_path)
@@ -164,8 +173,6 @@ def _load_profile_html(data_dir: Path) -> str:
     if constraints_path.exists():
         c = load_constraints(constraints_path)
         parts.append("<h3>硬约束</h3><ul>")
-        if c.geo:
-            parts.append(f"<li>地域: {_esc(', '.join(c.geo))}</li>")
         if c.age:
             parts.append(f"<li>年龄: {c.age}</li>")
         parts.append(f"<li>风险偏好: {_esc(c.risk_appetite.value)}</li>")
@@ -207,7 +214,7 @@ def _load_trends_html(data_dir: Path) -> str:
                 )
         parts.append("</section>")
     else:
-        parts.append("<p class='empty'>尚无行业信号。运行 scan 阶段，写入 <code>data/signals/</code>。</p>")
+        parts.append("<p class='empty'>「探索世界」尚无市场信号。让 Agent 联网调研，或使用 CLI 写入 <code>data/signals/</code>。</p>")
 
     if sectors_path.exists():
         sectors = load_sectors(sectors_path)
@@ -223,15 +230,15 @@ def _load_trends_html(data_dir: Path) -> str:
             parts.append("</div>")
         parts.append("</section>")
 
-    return content_page("\n".join(parts) if parts else "<p class='empty'>暂无趋势数据。</p>")
+    return content_page("\n".join(parts) if parts else "<p class='empty'>「探索世界」暂无趋势数据。完成认识自己后，开始采集行业信号。</p>")
 
 
 def _load_jobs_html(data_dir: Path) -> str:
     jobs_path = data_dir / "saved_jobs.yaml"
     if not jobs_path.exists():
         return content_page(
-            "<p class='empty'>尚无收藏岗位。</p>"
-            "<p class='muted'>终端收藏: <code>career-compass job add \"公司\" \"岗位\" --file jd.txt</code></p>"
+            "<p class='empty'>「探索世界」尚无收藏岗位。</p>"
+            "<p class='muted'>浏览 JD 时可终端收藏: <code>career-compass job add \"公司\" \"岗位\" --file jd.txt</code></p>"
         )
 
     from career_compass.jobs import analyze_saved_job
@@ -321,7 +328,11 @@ def _load_matrix_html(data_dir: Path) -> str:
         parts.append(_matrix_table_html(matrix.ranked_side(), title="副业（Side）", show_synergy=True))
         parts.append("<p class='muted'>YAML 摘要 · 点击「渲染矩阵」生成完整 Markdown</p>")
         return content_page("\n".join(parts))
-    return content_page("<p class='empty'>尚无机会矩阵。完成 analyze 后写入 <code>opportunities.yaml</code>。</p>")
+    return content_page(
+        "<p class='empty'>「做出决策」尚无机会矩阵。</p>"
+        "<p class='muted'>完成探索世界后，让 Agent 运行 analyze 生成 <code>opportunities.yaml</code>，"
+        "再点击「渲染矩阵」。</p>"
+    )
 
 
 HTML_SHELL = """<!DOCTYPE html>
@@ -406,26 +417,50 @@ HTML_SHELL = """<!DOCTYPE html>
   .barriers { color: var(--warn); padding-left: 18px; }
   #toast { position: fixed; bottom: 16px; right: 16px; background: var(--card); border: 1px solid var(--border);
     padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: 360px; white-space: pre-wrap; }
+  .journey-bar { display: flex; gap: 4px; padding: 10px 12px; background: var(--card);
+    border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-app-region: no-drag; }
+  .journey-step { flex: 1; min-width: 88px; text-align: center; font-size: 11px; color: var(--muted); padding: 2px 4px; }
+  .journey-step .num { display: block; width: 24px; height: 24px; line-height: 24px; border-radius: 50%;
+    background: var(--border); font-size: 11px; margin: 0 auto 4px; font-weight: 600; }
+  .journey-step .label { display: block; white-space: nowrap; }
+  .journey-step.done { color: var(--ok); }
+  .journey-step.done .num { background: rgba(36,138,61,0.18); color: var(--ok); }
+  .journey-step.current { color: var(--accent); }
+  .journey-step.current .num { background: var(--accent); color: #fff; }
+  .journey-step.optional .label::after { content: ' · 可选'; font-size: 10px; color: var(--muted); }
+  .journey-bar.complete { background: rgba(36,138,61,0.06); }
+  .journey-bar.complete .journey-step.done .num { background: rgba(36,138,61,0.22); }
+  .journey-complete-badge { flex: 0 0 auto; align-self: center; margin-left: 8px; padding: 4px 12px;
+    border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--ok);
+    background: rgba(36,138,61,0.15); white-space: nowrap; }
+  .journey-hint.complete { background: rgba(36,138,61,0.08); color: var(--ok); }
+  .journey-hint { padding: 8px 20px; font-size: 12px; color: var(--muted);
+    background: rgba(0,113,227,0.05); border-bottom: 1px solid var(--border); -webkit-app-region: no-drag; }
+""" + CHAT_EXTRA_STYLES + """
 </style>
 </head>
 <body>
 <header>
   <h1>北斗星</h1>
-  <span class="sub">画像 · 趋势 · 收藏 · 矩阵</span>
+  <span class="sub" id="journeySubtitle">认识自己 → 探索世界 → 做出决策 → 开始行动 → 持续追踪</span>
   <span class="path" id="dataPath"></span>
 </header>
+<div class="journey-bar" id="journeyBar"></div>
+<p class="journey-hint" id="journeyHint">加载中…</p>
 <nav>
-  <button id="tab-profile" class="active" onclick="showTab('profile')">个人画像</button>
-  <button id="tab-trends" onclick="showTab('trends')">行业趋势</button>
-  <button id="tab-jobs" onclick="showTab('jobs')">职位收藏</button>
-  <button id="tab-matrix" onclick="showTab('matrix')">机会矩阵</button>
+  <button id="tab-chat" class="active" onclick="showTab('chat')">对话</button>
+  <button id="tab-profile" onclick="showTab('profile')">我的画像</button>
+  <button id="tab-trends" class="locked" onclick="showTabSafe('trends')">行业趋势</button>
+  <button id="tab-jobs" class="locked" onclick="showTabSafe('jobs')">岗位收藏</button>
+  <button id="tab-matrix" class="locked" onclick="showTabSafe('matrix')">机会矩阵</button>
 </nav>
 <div class="toolbar" id="toolbar">
-  <button onclick="run('validate')">校验画像</button>
+  <button onclick="run('chat-reset')">重置对话</button>
   <button class="secondary" onclick="refresh()">刷新</button>
 </div>
 <main>
-  <section id="panel-profile" class="panel active"><div class="card" id="profile"></div></section>
+""" + CHAT_PANEL_HTML + """
+  <section id="panel-profile" class="panel"><div class="card" id="profile"></div></section>
   <section id="panel-trends" class="panel"><div class="card" id="trends"></div></section>
   <section id="panel-jobs" class="panel"><div class="card" id="jobs"></div></section>
   <section id="panel-matrix" class="panel"><div class="card" id="matrix"></div></section>
@@ -433,12 +468,13 @@ HTML_SHELL = """<!DOCTYPE html>
 <div id="toast"></div>
 <script>
 const TOOLBARS = {
+  chat: [['重置对话', 'chat-reset'], ['刷新', 'refresh']],
   profile: [['校验画像', 'validate'], ['刷新', 'refresh']],
   trends: [['刷新', 'refresh']],
   jobs: [['分析收藏', 'job-analyze'], ['刷新', 'refresh']],
   matrix: [['渲染矩阵', 'render-opportunities'], ['刷新', 'refresh']],
 };
-let currentTab = 'profile';
+let currentTab = 'chat';
 
 function showTab(name) {
   currentTab = name;
@@ -447,9 +483,11 @@ function showTab(name) {
   document.getElementById('panel-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   const tb = document.getElementById('toolbar');
-  tb.innerHTML = TOOLBARS[name].map(([label, cmd]) =>
+  const items = TOOLBARS[name] || [['刷新', 'refresh']];
+  tb.innerHTML = items.map(([label, cmd]) =>
     `<button class="${cmd==='refresh'?'secondary':''}" onclick="${cmd==='refresh'?'refresh()':`run('${cmd}')`}">${label}</button>`
   ).join('');
+  if (name === 'chat') loadChatState();
 }
 
 function toast(msg) {
@@ -466,10 +504,22 @@ async function refresh() {
   document.getElementById('trends').innerHTML = data.trends_html;
   document.getElementById('jobs').innerHTML = data.jobs_html;
   document.getElementById('matrix').innerHTML = data.matrix_html;
+  if (data.journey && typeof renderJourney === 'function') {
+    renderJourney(data.journey);
+  }
+  if (typeof updateTabLocks === 'function') {
+    updateTabLocks(!!data.intake_complete);
+  }
 }
 
 async function run(cmd) {
   if (cmd === 'refresh') { await refresh(); return; }
+  if (cmd === 'chat-reset') {
+    await pywebview.api.chat_reset();
+    await loadChatState();
+    toast('对话已重置');
+    return;
+  }
   const res = await pywebview.api.run_command(cmd);
   toast('career-compass ' + cmd + ' (exit ' + res.code + ')');
   await refresh();
@@ -478,7 +528,13 @@ async function run(cmd) {
   if (cmd === 'job-analyze') showTab('jobs');
 }
 
-window.addEventListener('pywebviewready', () => { showTab('profile'); refresh(); });
+""" + CHAT_EXTRA_SCRIPT + """
+
+window.addEventListener('pywebviewready', async () => {
+  await refresh();
+  const state = await loadChatState();
+  showTab(state.intake_complete ? 'profile' : 'chat');
+});
 </script>
 </body>
 </html>
@@ -489,10 +545,60 @@ class AppApi:
     def __init__(self) -> None:
         default = Path(os.getenv("CC_DATA", _REPO_ROOT / "data"))
         self.data_dir = default.resolve()
+        self._intake: IntakeEngine | None = None
+
+    def _intake_engine(self) -> IntakeEngine:
+        if self._intake is None:
+            self._intake = IntakeEngine(self.data_dir, templates_dir=_templates_dir())
+        return self._intake
+
+    def chat_state(self) -> dict:
+        cfg = get_llm_config()
+        status = build_intake_status(self.data_dir)
+        pipeline = detect_stage(self.data_dir)
+        journey = build_journey_status(self.data_dir)
+        return {
+            "messages": self._intake_engine().get_messages(),
+            "llm": {
+                "provider": cfg.provider,
+                "model": cfg.model,
+                "configured": cfg.configured,
+            },
+            "stage": pipeline.stage.value,
+            "journey": journey.to_dict(),
+            **status,
+        }
+
+    def chat_send(self, message: str) -> dict:
+        result = self._intake_engine().chat(message)
+        status = build_intake_status(self.data_dir)
+        journey = build_journey_status(self.data_dir)
+        return {
+            "reply": result.reply,
+            "ok": result.ok,
+            "messages": self._intake_engine().get_messages(),
+            "files_updated": result.files_updated,
+            "just_completed": result.just_completed,
+            "llm": {
+                "provider": result.llm_provider,
+                "model": result.llm_model,
+                "configured": get_llm_config().configured,
+            },
+            "journey": journey.to_dict(),
+            **status,
+        }
+
+    def chat_reset(self) -> dict:
+        self._intake_engine().reset()
+        return {"ok": True}
 
     def load_all(self) -> dict:
+        status = build_intake_status(self.data_dir)
+        journey = build_journey_status(self.data_dir)
         return {
             "data_dir": str(self.data_dir),
+            "intake_complete": status["intake_complete"],
+            "journey": journey.to_dict(),
             "profile_html": _load_profile_html(self.data_dir),
             "trends_html": _load_trends_html(self.data_dir),
             "jobs_html": _load_jobs_html(self.data_dir),
@@ -512,9 +618,31 @@ class AppApi:
         return _run_cli(args, self.data_dir)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    args = list(argv if argv is not None else sys.argv[1:])
     api = AppApi()
-    webview.create_window(
+
+    if "--web" in args:
+        port = 8765
+        if "--port" in args:
+            idx = args.index("--port")
+            if idx + 1 < len(args):
+                port = int(args[idx + 1])
+        from .web_server import run_web_server
+
+        run_web_server(api, html=HTML_SHELL, port=port)
+        return
+
+    try:
+        import webview as _webview
+    except ImportError:
+        print("未安装 pywebview，改用 Web 模式: career-compass-app --web")
+        from .web_server import run_web_server
+
+        run_web_server(api, html=HTML_SHELL)
+        return
+
+    _webview.create_window(
         WINDOW_TITLE,
         html=HTML_SHELL,
         js_api=api,
@@ -524,7 +652,21 @@ def main() -> None:
         text_select=True,
     )
     icon = _app_icon_path()
-    webview.start(gui="cocoa", icon=icon)
+    gui = webview_gui()
+    kwargs: dict = {"icon": icon} if icon else {}
+    try:
+        if gui:
+            _webview.start(gui=gui, **kwargs)
+        else:
+            _webview.start(**kwargs)
+    except Exception as e:
+        msg = str(e)
+        if "QT or GTK" in msg or "WebViewException" in type(e).__name__:
+            print("桌面 GUI 不可用（WSL 常见），已提示 Web 模式:")
+            print("  uv run career-compass-app --web")
+            print(f"  原因: {msg}")
+            raise SystemExit(1) from e
+        raise
 
 
 if __name__ == "__main__":

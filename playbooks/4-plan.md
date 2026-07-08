@@ -48,8 +48,8 @@ strategy.md 开头要写明：
 ## 对齐 constraints
 
 - runway 不足 → 短期不能"全职读博"
-- geo 限定 → 不能依赖"去硅谷攒经历"
 - risk_appetite low → 短期不能 all-in 没对冲的方向
+- （geo/地域已移除——"去硅谷攒经历"等城市选择由用户拿到方向后自行决定，北斗星不约束）
 
 违反任何 constraint = 无效，重写。
 

@@ -17,7 +17,9 @@ from .gather import scan_plan
 from .schema import (
     ValidationError,
     count_signals,
+    derive_education_summary,
     load_constraints,
+    load_opportunities,
     load_profile,
     validate_constraints,
     validate_narrative,
@@ -100,6 +102,89 @@ def run_validation(data_dir: Path) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+# ---------- Schema 2.3 资格闸门校验 ----------
+
+_ELIGIBILITY_FAIL_OK_COMPOSITES = {"D", "E", "F"}
+_FACULTY_ELITE_TIERS = {"211", "985"}
+_FIRST_DEGREE_BLOCKED_TIERS = {"二本", "三本"}
+
+
+def validate_eligibility(matrix) -> "ValidationResult":
+    """校验机会矩阵的资格闸门字段是否合规。
+
+    返回 schema.ValidationResult：
+    - ERROR：cell.eligibility==fail 但 composite ∈ {A,B,C}（封顶未执行）
+    - ERROR：211/985 教职格 cell 缺 eligibility 或错误 pass，且画像第一学历为二本/三本
+    - WARNING：211/985 教职格 cell 未填 institution_tier / employer_subtype
+    """
+    from .schema import ValidationIssue, ValidationResult
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+
+    # 画像第一学历（用于 211/985 教职格 cross-check）
+    first_degree_tier: str | None = None
+    # matrix 本身不持有 profile；调用方负责传入更准确，这里尽力从 capability 推断
+    # 真正的 cross-check 在 cmd_validate 里带 profile 再跑一次（见 cli.py）
+    for cell in matrix.cross_matrix:
+        elig = (cell.eligibility or "pass").strip().lower()
+        comp = (cell.composite or "").strip().upper()
+        # 规则 1：fail 但 composite 仍 >=C
+        if elig == "fail" and comp not in _ELIGIBILITY_FAIL_OK_COMPOSITES:
+            errors.append(ValidationIssue(
+                level="error",
+                field=f"cross_matrix.{cell.capability_id}:{cell.employer_id}",
+                message=(
+                    f"资格关 fail 但 composite={comp}（应 ≤D）—— "
+                    f"资格闸门封顶未执行；rationale: {cell.eligibility_rationale}"
+                ),
+            ))
+        # 规则 2：211/985 教职格元数据缺失
+        sub = (cell.employer_subtype or "").strip()
+        tier = (cell.institution_tier or "").strip()
+        if sub == "university_faculty" and tier in _FACULTY_ELITE_TIERS:
+            if not cell.eligibility_rationale and elig == "pass":
+                warnings.append(ValidationIssue(
+                    level="warning",
+                    field=f"cross_matrix.{cell.capability_id}:{cell.employer_id}",
+                    message=f"{tier} 教职格 eligibility=pass 但无 rationale，确认资格闸门已运行",
+                ))
+
+    return ValidationResult(errors=errors, warnings=warnings)
+
+
+def validate_eligibility_with_profile(matrix, profile) -> "ValidationResult":
+    """带 profile 的资格闸门 cross-check：
+    - 211/985 教职格若 eligibility 缺失或 pass，但画像第一学历 ∈ {二本,三本} → ERROR
+    """
+    from .schema import ValidationIssue, ValidationResult
+
+    base = validate_eligibility(matrix)
+    edu = derive_education_summary(profile)
+    first_tier = (edu.first_degree_tier or "").strip()
+
+    extra_errors: list[ValidationIssue] = []
+    if first_tier in _FIRST_DEGREE_BLOCKED_TIERS:
+        for cell in matrix.cross_matrix:
+            sub = (cell.employer_subtype or "").strip()
+            tier = (cell.institution_tier or "").strip()
+            if sub == "university_faculty" and tier in _FACULTY_ELITE_TIERS:
+                elig = (cell.eligibility or "pass").strip().lower()
+                if elig == "pass":
+                    extra_errors.append(ValidationIssue(
+                        level="error",
+                        field=f"cross_matrix.{cell.capability_id}:{cell.employer_id}",
+                        message=(
+                            f"{tier} 教职格 eligibility=pass，但画像第一学历为「{first_tier}」—— "
+                            f"211/985 教职格未运行资格闸门或错误通过"
+                        ),
+                    ))
+    return ValidationResult(
+        errors=base.errors + extra_errors,
+        warnings=base.warnings,
+    )
+
+
 def detect_stage(data_dir: Path) -> PipelineState:
     """根据 data/ 文件推断当前阶段。"""
     errors, warnings = run_validation(data_dir)
@@ -169,20 +254,18 @@ def next_steps(state: PipelineState, data_dir: Path, project_root: Path | None =
         steps.append("运行: uv run career-compass brief 聚合分析输入")
         steps.append("可选: uv run career-compass match --write-draft 生成候选机会草稿")
         steps.append("按 playbooks/3-analyze.md 审阅/修订 data/opportunities.yaml")
-        steps.append("运行: uv run career-compass render-opportunities 渲染机会矩阵")
-        steps.append("可选: uv run career-compass render-pack 渲染求职定位包")
+        steps.append("运行: uv run career-compass render-opportunities 渲染机会矩阵 ★核心交付★")
 
     elif state.stage == Stage.plan:
         steps.append("用户已从矩阵选定方向 —— 按 playbooks/4-plan.md 展开")
         steps.append("运行: uv run career-compass render-strategy 生成 strategy 骨架")
 
     elif state.stage == Stage.done:
-        steps.append("★ 主交付物已完成（机会矩阵）")
-        steps.append("渲染执行材料: uv run career-compass render-pack && render-execution")
-        steps.append("开始投递后: uv run career-compass track add ... / track funnel")
-        steps.append("反馈修订: uv run career-compass replan [--write]")
-        steps.append("若想深入某方向: 选一个方向 → playbooks/4-plan.md")
-        steps.append("可选压测: playbooks/5-stress-test.md")
+        steps.append("★ 核心交付已完成：机会矩阵（opportunities.md）")
+        steps.append("可选 — 方向深化: playbooks/4-plan.md → strategy.md（可压测 5-stress-test）")
+        steps.append("可选 — 战术延伸(L3): uv run career-compass render-execution")
+        steps.append("可选 — 长期修正(L4): track add / track funnel / replan [--write]")
+        steps.append("可选 — 汇总视图: uv run career-compass render-pack（与矩阵信息重叠，一般不必）")
 
     return steps
 

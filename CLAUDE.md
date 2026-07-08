@@ -10,12 +10,19 @@ Analyze **profile × industry structure × trends × competition** and return **
 
 ## What it is
 
-Four user-facing surfaces (App + CLI): **Profile · Trends · Saved jobs · Opportunity matrix**.
+**Primary surfaces — conversational intake** (both write `data/` + `validate`):
 
-- `src/career_compass/` — Python CLI + macOS app (`career-compass-app`)
-- `playbooks/` — analysis logic (agent-driven; mostly Chinese scripts)
+| Surface | How |
+|---------|-----|
+| **Agent Skill** | Claude Code / Cursor — this file + `playbooks/` |
+| **GUI chat** | `career-compass-app --web` → 对话 Tab |
+
+**Also**: CLI pipeline; GUI tabs for viewing profile · trends · matrix.
+
+- `SKILL.md` / `.cursor/skills/career-compass/` — installable agent skill
+- `playbooks/` — stage scripts (intake / scan / analyze / …)
+- `src/career_compass/` — CLI + optional GUI app
 - `data/` — single source of truth per user (gitignored)
-- `data/examples/` — sanitized samples
 
 ## Workflow
 

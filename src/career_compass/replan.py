@@ -167,7 +167,9 @@ def apply_replan_suggestions(
 
     primary = [o.model_copy(deep=True) for o in matrix.primary]
     side = [o.model_copy(deep=True) for o in matrix.side]
+    cross = [c.model_copy(deep=True) for c in matrix.cross_matrix]
     layer_lists = [primary, side]
+    cell_lists = [cross]
 
     for sug in suggestions:
         if sug.kind != "downgrade_direction":
@@ -177,6 +179,12 @@ def apply_replan_suggestions(
                 if _direction_key(sug.target, opp.direction):
                     opp.composite = _composite_downgrade(opp.composite)
                     opp.costs = list(opp.costs) + [f"[replan] {sug.reason}"]
+        for cells in cell_lists:
+            for cell in cells:
+                label = f"{cell.capability_id}:{cell.employer_id}"
+                if _direction_key(sug.target, label) or _direction_key(sug.target, cell.capability_id):
+                    cell.composite = _composite_downgrade(cell.composite)
+                    cell.costs = list(cell.costs) + [f"[replan] {sug.reason}"]
 
     for sug in suggestions:
         if sug.kind != "add_skill_gap":
@@ -192,12 +200,26 @@ def apply_replan_suggestions(
                         priority="high",
                         notes=sug.reason[:120],
                     ))
+        for cells in cell_lists:
+            for cell in cells:
+                existing = {g.skill for g in cell.skill_gaps}
+                if sug.target not in existing:
+                    cell.skill_gaps.append(SkillGap(
+                        skill=sug.target,
+                        current_level="none",
+                        target_level="market feedback",
+                        priority="high",
+                        notes=sug.reason[:120],
+                    ))
 
     return OpportunityMatrix(
         generated_on=date.today(),
         unified_theme=matrix.unified_theme,
         shared_assets=list(matrix.shared_assets),
         synergy_notes=matrix.synergy_notes,
+        capability_axes=list(matrix.capability_axes),
+        employer_axes=list(matrix.employer_axes),
+        cross_matrix=cross,
         primary=primary,
         side=side,
     )

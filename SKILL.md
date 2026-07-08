@@ -1,13 +1,22 @@
 ---
 name: career-compass
-description: Beidou (北斗星) — pre-application career decision engine. Profile × industry trends × match engine → opportunity matrix and job-search execution loop. Use when the user wants career planning, industry/role choice, or application feedback. Flow intake→scan→analyze→execute(track/replan)→optional plan/stress-test.
+description: Beidou (北斗星) — pre-application career decision engine. Profile × industry trends × match engine → opportunity matrix and job-search execution loop. Use when the user wants career planning, industry/role choice, or application feedback. **Intake: agent dialogue (Claude Code/Cursor) OR GUI chat** — both write data/ + CLI. Flow intake→scan→analyze→execute(track/replan)→optional plan/stress-test.
 ---
 
 **English** | [简体中文](SKILL.zh-CN.md)
 
 # Beidou (北斗星)
 
-A **before-you-apply** career planning system. **Core deliverable: an opportunity matrix** — several comparable, evidence-backed directions as input to the user's decision. It **does not** pick a path for them.
+A **before-you-apply** career planning system.
+
+**Conversational intake — two equivalent paths:**
+
+1. **Coding agent** (Claude Code / Cursor) — this skill + `playbooks/`
+2. **GUI chat** — `career-compass-app --web` → 对话 Tab (needs LLM env vars)
+
+Both produce `profile.yaml`, `constraints.yaml`, `narrative.md` and run `validate`.
+
+**Core deliverable: an opportunity matrix** — several comparable, evidence-backed directions. It **does not** pick a path for the user.
 
 ## Mental model
 

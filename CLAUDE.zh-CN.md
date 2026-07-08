@@ -23,8 +23,8 @@
 
 1. **intake** — 引导式画像 → profile / narrative / constraints
 2. **scan** — scan-plan → new-signal
-3. **analyze** — brief → match --write-draft → 审阅 opportunities.yaml → render-opportunities / render-pack
-4. **execute（Phase 3）** — render-execution → track 投递 → funnel → replan
+3. **analyze** — brief → match --write-draft → 审阅 opportunities.yaml → render-opportunities（★核心交付★）
+4. **execute（可选）** — render-execution → track 投递 → funnel → replan
 5. **plan / stress-test** — 可选，用户选定方向后
 
 **编排**: `status` / `run --stage`

@@ -10,6 +10,7 @@ from .schema import (
     EducationStatus,
     SkillGap,
     load_constraints,
+    load_employer_types,
     load_industry_graph,
     load_opportunities,
     load_profile,
@@ -148,7 +149,17 @@ def brief(
         lines.append("\n## Role Taxonomy（岗位族 · Phase 2 摘要）")
         for rf in taxonomy.role_families[:8]:
             req = ", ".join(rf.required_skills[:4])
-            lines.append(f"- **{rf.role}** ({rf.typical_seniority}) — 需: {req}")
+            emp = f" · 雇主={rf.employer_type_id}" if rf.employer_type_id else ""
+            lines.append(f"- **{rf.role}** ({rf.typical_seniority}) — 需: {req}{emp}")
+
+    employer_path = (sectors_path.parent / "employer_types.yaml")
+    if employer_path.exists():
+        et = load_employer_types(employer_path)
+        lines.append("\n## Employer Types（雇主性质轴 · Schema 2.2）")
+        for e in et.employer_types:
+            lines.append(f"- **{e.name}** (`{e.id}`) — 稳定:{e.stability} · 天花板:{e.ceiling}")
+            if e.trap:
+                lines.append(f"  - ⚠️陷阱: {e.trap}")
 
     return "\n".join(lines)
 
@@ -183,7 +194,16 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 **协同方式**：{{ synergy_notes }}
 
 {% endif %}
-## 四维评分说明
+## 每个方向回答四个问题
+
+| 模块 | 问什么 |
+|------|--------|
+| **往哪走** | 去哪个行业/赛道、适合什么岗位 |
+| **凭什么** | 你有什么可验证优势、还缺什么 |
+| **值不值得现在进** | 竞争多激烈、现在是顺风还是逆风 |
+| **坑在哪** | 浅层热门岗、主要机会成本、试错代价 |
+
+下方 **比较优势 / Ikigai / 顺风逆风 / 试错成本** 是矩阵内的评分维度（与上方四个用户模块不是同一套分类）：
 
 | 维度 | 问什么 | 常见评级 |
 |------|--------|----------|
@@ -196,9 +216,94 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ---
 
+{% if uses_orthogonal %}
+## 正交矩阵（能力方向 × 雇主性质）
+
+> Schema 2.2：**行 = 能力/行业方向，列 = 雇主性质**。有的人对央企/公务员/民企有强偏好——请按列筛选，不要只看综合最高格。
+
+### 能力轴（你在做什么）
+
+| ID | 能力方向 | 行业/价值链 |
+|----|----------|-------------|
+{% for cap in capability_axes -%}
+| {{ cap.id }} | {{ cap.name }} | {{ cap.industry or "—" }}{% if cap.value_chain_node %} / {{ cap.value_chain_node }}{% endif %} |
+{% endfor %}
+
+### 雇主性质轴
+
+| ID | 雇主性质 | 稳定性 | 天花板 | 典型入口 |
+|----|----------|--------|--------|----------|
+{% for emp in employer_axes -%}
+| {{ emp.id }} | {{ emp.name }} | {{ emp.stability }} | {{ emp.ceiling }} | {{ emp.entry_paths|join("、") if emp.entry_paths else "—" }} |
+{% endfor %}
+
+### 交叉矩阵（综合评级）
+
+> 资格关 fail 的格用 ~~删除线~~ 标注，不参与推荐（见下方「资格关未过」专节）。
+
+| 能力 ↓ \\ 雇主 → | {% for emp in employer_axes %}{{ emp.name }} | {% endfor %}
+|{% for emp in employer_axes %}---|{% endfor %}---|
+{% for cap in capability_axes -%}
+| **{{ cap.name }}** | {% for emp in employer_axes %}{{ cell_display.get(cap.id ~ ":" ~ emp.id, "—") }} | {% endfor %}
+{% endfor %}
+
+### 交叉矩阵详情（含资格关 / L5 技能迁移 / 硬门槛）
+
+{% for cell in ranked_cells %}
+#### {{ cell_labels.get(cell.capability_id ~ ":" ~ cell.employer_id, cell.capability_id) }}　·　综合 {{ cell.composite }}{% if cell.blocked %}　·　资格关未过（blocked）{% endif %}
+
+| 维度 | 评级 | 依据 |
+|------|------|------|
+| **资格关** | {{ cell.eligibility | default("pass") }} | {{ cell.eligibility_rationale or "—" }} |
+| 比较优势 | {{ cell.fit }} | {{ cell.fit_rationale }} |
+| Ikigai 四圈 | {{ cell.match }} | {{ cell.match_rationale }} |
+| 顺风/逆风 | {{ cell.wind }} | {{ cell.wind_rationale }} |
+| 试错成本 | {{ cell.risk }} | {{ cell.risk_rationale }} |
+| **技能迁移** | {{ cell.skill_transfer or "—" }} | {{ cell.skill_transfer_rationale or "—" }} |
+
+{% if cell.entry_mechanism %}- **入口机制**：{{ cell.entry_mechanism }}
+{% endif %}
+{% if cell.hard_gates %}- **硬门槛**：{{ cell.hard_gates|join("；") }}
+{% endif %}
+{% if cell.skill_gaps %}- **还缺什么**：
+{% for g in cell.skill_gaps %}
+  - **{{ g.skill }}**（{{ g.priority }}）
+{% endfor %}
+{% endif %}
+- **试错第一步**：{{ cell.first_step or "(待填)" }}
+
+---
+{% endfor %}
+
+### 按雇主性质汇总（偏好强时先看此表）
+
+{% for emp in employer_axes %}
+#### 列：{{ emp.name }}
+
+| 能力方向 | 综合 | 技能迁移 | 入口 |
+|----------|------|----------|------|
+{% for cell in cells_by_employer.get(emp.id, []) -%}
+| {{ cap_names.get(cell.capability_id, cell.capability_id) }} | {{ cell.composite }} | {{ cell.skill_transfer or "—" }} | {{ cell.entry_mechanism or "—" }} |
+{% endfor %}
+
+{% endfor %}
+
+{% if blocked_cells %}
+## 资格关未过（blocked — 仅完整对比，不参与推荐）
+
+> 下列单元招聘资格关 fail（如第一学历门槛、年龄线），composite 已封顶至 D。保留作完整对比，但 `synthesized_primary` / `ranked_primary` 已剔除。
+
+| 能力方向 | 雇主性质 | 综合 | 资格关 | 依据 | 命中规则 |
+|----------|----------|------|--------|------|----------|
+{% for cell in blocked_cells -%}
+| {{ cap_names.get(cell.capability_id, cell.capability_id) }} | {{ emp_names.get(cell.employer_id, cell.employer_id) }} | {{ cell.composite }} | {{ cell.eligibility }} | {{ cell.eligibility_rationale }} | {{ cell.eligibility_rules | join("；") }} |
+{% endfor %}
+
+{% endif %}
+{% endif %}
 ## 主业（Primary）
 
-> 主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。
+> {% if uses_orthogonal %}下列为各能力轴在你**当前雇主偏好下**的最佳列合成视图；完整交叉见上表。{% else %}主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。{% endif %}
 
 ### 主业总览
 
@@ -223,54 +328,61 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 {% for o in ranked_primary %}
 #### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
 
-{% if o.industry or o.value_chain_node or o.competition_index is not none %}
-**定位**
+**往哪走**
 
-{% if o.industry %}- 行业: {{ o.industry }}
+{% if o.industry %}- 行业/赛道：{{ o.industry }}
 {% endif %}
-{% if o.value_chain_node %}- 价值链: {{ o.value_chain_node }}
-{% endif %}
-{% if o.competition_index is not none %}- 竞争密度: {{ "%.2f"|format(o.competition_index) }}
-{% endif %}
-
+{% if o.value_chain_node %}- 价值链位置：{{ o.value_chain_node }}
 {% endif %}
 {% if o.role_families %}
-**岗位族**
+- 适合岗位：
 
-| 岗位 | 职级带 | 匹配度 | 竞争指数 |
-|------|--------|--------|----------|
+| 岗位 | 资历 | 匹配度 | 竞争强度 |
+|------|------|--------|----------|
 {% for rf in o.role_families -%}
 | {{ rf.role }} | {{ rf.seniority or "—" }} | {{ rf.match_score if rf.match_score is not none else "—" }} | {{ rf.competition_index if rf.competition_index is not none else "—" }} |
 {% endfor %}
 
 {% endif %}
-{% if o.skill_gaps %}
-**技能缺口**
-
-{% for g in o.skill_gaps %}
-- **{{ g.skill }}** ({{ g.priority }}) — {{ g.current_level or "?" }} → {{ g.target_level or "?" }}{% if g.notes %} · {{ g.notes }}{% endif %}
-{% endfor %}
-
-{% endif %}
+**凭什么**
 
 | 维度 | 评级 | 依据 |
 |------|------|------|
 | 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
-| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
+{% if o.skill_gaps %}
+- 还缺什么：
+
+{% for g in o.skill_gaps %}
+  - **{{ g.skill }}**（{{ g.priority }}）— 当前 {{ g.current_level or "?" }}，目标 {{ g.target_level or "?" }}{% if g.notes %} · {{ g.notes }}{% endif %}
+{% endfor %}
+
+{% endif %}
+**值不值得现在进**
+
+| 维度 | 评级 | 依据 |
+|------|------|------|
 | 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
+| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
+{% if o.competition_index is not none %}- 竞争激烈程度：{{ "%.2f"|format(o.competition_index) }}
+{% endif %}
+
+**坑在哪**
+
+| 维度 | 评级 | 依据 |
+|------|------|------|
 | 试错成本 | {{ o.risk }} | {{ o.risk_rationale }} |
+
+**主要机会成本**
+
+{% for x in o.costs %}
+- {{ x }}
+{% else %}
+- (待填：浅层岗位陷阱、易被替代风险等)
+{% endfor %}
 
 **打开的选项**
 
 {% for x in o.opens_up %}
-- {{ x }}
-{% else %}
-- (待填)
-{% endfor %}
-
-**机会成本**
-
-{% for x in o.costs %}
 - {{ x }}
 {% else %}
 - (待填)
@@ -331,14 +443,36 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 ---
 {% endfor %}
 
-## 下一步
+## 下一步（可选）
 
-从**主业**或**副业**中自行选定 1 个方向 → `playbooks/4-plan.md`（可选 `playbooks/5-stress-test.md` 压测）。
+**核心交付到此结束。** 请从矩阵中**自行选定**方向；以下为可选延伸：
+
+- **方向深化**：`playbooks/4-plan.md` → `strategy.md`（可选 `5-stress-test` 压测）
+- **战术延伸**：`render-execution` → 行动手册（简历、投递策略）
+- **长期修正**：开始投递后用 `track` / `replan` 迭代机会矩阵
 """
 
 
 def render_opportunities(opportunities_path: Path) -> str:
     matrix = load_opportunities(opportunities_path)
+    uses_orthogonal = matrix.uses_orthogonal_matrix()
+    cell_display: dict[str, str] = {}
+    cell_labels: dict[str, str] = {}
+    cap_names = {c.id: c.name for c in matrix.capability_axes}
+    emp_names = {e.id: e.name for e in matrix.employer_axes}
+    for cell in matrix.cross_matrix:
+        key = f"{cell.capability_id}:{cell.employer_id}"
+        # blocked 单元用删除线标注，不参与推荐
+        if cell.blocked:
+            cell_display[key] = f"~~{cell.composite}~~"
+        else:
+            cell_display[key] = cell.composite
+        cap = cap_names.get(cell.capability_id, cell.capability_id)
+        emp = emp_names.get(cell.employer_id, cell.employer_id)
+        cell_labels[key] = f"{cap} × {emp}"
+    cells_by_employer: dict[str, list] = {}
+    for emp in matrix.employer_axes:
+        cells_by_employer[emp.id] = matrix.cells_for_employer(emp.id)
     return Template(_OPPORTUNITIES_TEMPLATE).render(
         generated_on=matrix.generated_on.isoformat(),
         unified_theme=matrix.unified_theme,
@@ -346,6 +480,16 @@ def render_opportunities(opportunities_path: Path) -> str:
         synergy_notes=matrix.synergy_notes,
         ranked_primary=matrix.ranked_primary(),
         ranked_side=matrix.ranked_side(),
+        uses_orthogonal=uses_orthogonal,
+        capability_axes=matrix.capability_axes,
+        employer_axes=matrix.employer_axes,
+        ranked_cells=matrix.ranked_cross_matrix(),
+        blocked_cells=matrix.blocked_cells(),
+        cell_display=cell_display,
+        cell_labels=cell_labels,
+        cap_names=cap_names,
+        emp_names=emp_names,
+        cells_by_employer=cells_by_employer,
     )
 
 

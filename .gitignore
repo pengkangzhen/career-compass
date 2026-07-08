@@ -35,3 +35,4 @@ data/signals/*
 .DS_Store
 .idea/
 .vscode/
+.codegraph/

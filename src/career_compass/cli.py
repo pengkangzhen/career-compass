@@ -37,7 +37,7 @@ from .jobs import (
     list_saved_jobs,
     remove_saved_job,
 )
-from .match import generate_candidate_opportunities
+from .match import generate_candidate_opportunities, generate_orthogonal_matrix
 from .pipeline import Stage, detect_stage, next_steps, run_stage_check
 from .replan import replan_and_optional_write
 from .render import brief, render_execution_pack, render_job_pack, render_opportunities, render_strategy
@@ -55,6 +55,7 @@ from .schema import (
     load_profile,
     load_projects,
     load_role_taxonomy,
+    load_employer_types,
     load_sectors,
     load_signals,
     save_opportunities,
@@ -79,6 +80,7 @@ SAVED_JOBS = DATA / "saved_jobs.yaml"
 OPPORTUNITIES_REVISED = DATA / "opportunities.revised.yaml"
 INDUSTRY_GRAPH = DATA / "industry_graph.yaml"
 ROLE_TAXONOMY = DATA / "role_taxonomy.yaml"
+EMPLOYER_TYPES = DATA / "employer_types.yaml"
 STRATEGY = DATA / "strategy.md"
 PROJECT_ROOT = Path.cwd()
 
@@ -95,9 +97,26 @@ def _print_validation(errors: list[str], warnings: list[str]) -> None:
 
 
 def cmd_validate(_args: argparse.Namespace) -> int:
-    from .pipeline import run_validation
+    from .pipeline import run_validation, validate_eligibility_with_profile
 
     errors, warnings = run_validation(DATA)
+
+    # Schema 2.3：若机会矩阵已存在，校验资格闸门字段
+    if OPPORTUNITIES_YAML.exists():
+        try:
+            from .schema import load_opportunities
+            matrix = load_opportunities(OPPORTUNITIES_YAML)
+            if PROFILE.exists():
+                from .schema import load_profile
+                profile = load_profile(PROFILE)
+                evr = validate_eligibility_with_profile(matrix, profile)
+            else:
+                from .pipeline import validate_eligibility
+                evr = validate_eligibility(matrix)
+            errors.extend(i.message for i in evr.errors)
+            warnings.extend(i.message for i in evr.warnings)
+        except Exception as e:  # noqa: BLE001 — validate 不应因矩阵损坏而崩
+            warnings.append(f"opportunities.yaml 资格闸门校验跳过: {e}")
 
     if errors:
         _print_validation(errors, warnings)
@@ -113,11 +132,18 @@ def cmd_validate(_args: argparse.Namespace) -> int:
 
 
 def cmd_status(_args: argparse.Namespace) -> int:
+    from .journey import build_journey_status
+
     state = detect_stage(DATA)
-    print(f"当前阶段: {state.stage.value}")
+    journey = build_journey_status(DATA)
+    print(f"当前步骤: {journey.current_title}（用户旅程）")
+    print(f"引擎阶段: {state.stage.value}")
+    print(f"  → {journey.next_hint}")
     print(f"  信号: {state.signal_count} 条")
     print(f"  机会矩阵: {'✅' if state.has_opportunities else '—'} yaml · "
           f"{'✅' if state.has_opportunities_md else '—'} md")
+    if state.has_opportunities_md:
+        print("  ★ 核心交付: 已完成")
     if state.has_strategy:
         print("  strategy.md: ✅")
 
@@ -245,32 +271,65 @@ def cmd_match(args: argparse.Namespace) -> int:
     if not INDUSTRY_GRAPH.exists() or not ROLE_TAXONOMY.exists():
         print("❌ 缺少 industry_graph.yaml 或 role_taxonomy.yaml")
         return 1
+    if not EMPLOYER_TYPES.exists():
+        print(f"❌ 缺少 {EMPLOYER_TYPES}（Schema 2.2 雇主性质轴）")
+        return 1
 
     profile = load_profile(PROFILE)
     constraints = load_constraints(CONSTRAINTS) if CONSTRAINTS.exists() else Constraints()
     graph = load_industry_graph(INDUSTRY_GRAPH)
     roles = load_role_taxonomy(ROLE_TAXONOMY)
+    employer_types = load_employer_types(EMPLOYER_TYPES)
     signals = load_signals(SIGNALS)
     projects = load_projects(PROJECTS) if PROJECTS.exists() else None
 
-    opps = generate_candidate_opportunities(
-        profile, constraints, graph, roles, signals, projects,
-    )
+    if getattr(args, "legacy", False):
+        opps = generate_candidate_opportunities(
+            profile, constraints, graph, roles, signals, projects,
+        )
+        print(f"匹配引擎（legacy 单轴）产出 {len(opps)} 个候选方向:\n")
+        for i, o in enumerate(opps, 1):
+            ms = o.role_families[0].match_score if o.role_families else None
+            ms_s = f"{ms:.0%}" if ms is not None else "—"
+            print(f"  {i}. {o.direction} [{o.composite}] 行业={o.industry} 匹配={ms_s}")
+        if args.write_draft:
+            save_opportunities(OPPORTUNITIES_DRAFT, OpportunityMatrix(
+                generated_on=date.today(), primary=opps,
+            ))
+            print(f"\n✅ 草稿已写入 {OPPORTUNITIES_DRAFT}")
+        return 0
 
-    print(f"匹配引擎产出 {len(opps)} 个候选方向:\n")
-    for i, o in enumerate(opps, 1):
-        ms = o.role_families[0].match_score if o.role_families else None
+    matrix = generate_orthogonal_matrix(
+        profile, constraints, graph, roles, employer_types, signals, projects,
+        eligibility_rules_path=DATA / "hiring_eligibility_rules.yaml",
+    )
+    print(
+        f"正交矩阵：{len(matrix.capability_axes)} 能力轴 × "
+        f"{len(matrix.employer_axes)} 雇主轴 → {len(matrix.cross_matrix)} 单元\n"
+    )
+    cap_names = {c.id: c.name for c in matrix.capability_axes}
+    emp_names = {e.id: e.name for e in matrix.employer_axes}
+    blocked_count = sum(1 for c in matrix.cross_matrix if c.blocked)
+    for cell in matrix.ranked_cross_matrix()[:12]:
+        cap = cap_names.get(cell.capability_id, cell.capability_id)
+        emp = emp_names.get(cell.employer_id, cell.employer_id)
+        ms = cell.role_families[0].match_score if cell.role_families else None
         ms_s = f"{ms:.0%}" if ms is not None else "—"
-        comp = f"{o.competition_index:.2f}" if o.competition_index is not None else "—"
-        print(f"  {i}. {o.direction} [{o.composite}] 行业={o.industry} 匹配={ms_s} 竞争={comp}")
-        if o.skill_gaps:
-            gaps = ", ".join(g.skill for g in o.skill_gaps[:3])
-            print(f"     缺口: {gaps}")
+        flag = " [资格关:fail/blocked]" if cell.blocked else (
+            f" [资格关:{cell.eligibility}]" if cell.eligibility != "pass" else ""
+        )
+        print(
+            f"  [{cell.composite}] {cap} × {emp}  匹配={ms_s}  "
+            f"迁移={cell.skill_transfer or '—'}{flag}"
+        )
+    if len(matrix.cross_matrix) > 12:
+        print(f"  … 共 {len(matrix.cross_matrix)} 单元，见 draft yaml")
+    if blocked_count:
+        print(f"\n⚠️  {blocked_count} 个单元资格关 fail（blocked，不参与推荐）")
 
     if args.write_draft:
-        matrix = OpportunityMatrix(generated_on=date.today(), primary=opps)
         save_opportunities(OPPORTUNITIES_DRAFT, matrix)
-        print(f"\n✅ 草稿已写入 {OPPORTUNITIES_DRAFT}（审阅后可 mv 为 opportunities.yaml）")
+        print(f"\n✅ 正交矩阵草稿已写入 {OPPORTUNITIES_DRAFT}（审阅后 mv 为 opportunities.yaml）")
     else:
         print("\n💡 加 --write-draft 写入 data/opportunities.draft.yaml")
 
@@ -584,15 +643,20 @@ def main() -> int:
     sub.add_parser("render-opportunities", help="渲染机会矩阵(核心交付物)").set_defaults(func=cmd_render_opportunities)
     sub.add_parser("render-strategy", help="渲染 strategy.md 骨架").set_defaults(func=cmd_render_strategy)
 
-    m = sub.add_parser("match", help="运行匹配引擎生成候选机会")
+    m = sub.add_parser("match", help="运行匹配引擎生成正交机会矩阵（能力×雇主）")
     m.add_argument(
         "--write-draft",
         action="store_true",
         help="写入 data/opportunities.draft.yaml",
     )
+    m.add_argument(
+        "--legacy",
+        action="store_true",
+        help="使用 Schema 2.1 单轴匹配（不含雇主性质交叉）",
+    )
     m.set_defaults(func=cmd_match)
 
-    rp = sub.add_parser("render-pack", help="渲染求职定位包 v1")
+    rp = sub.add_parser("render-pack", help="（可选）从机会矩阵导出汇总视图 → job_pack.md")
     rp.add_argument("--stdout", action="store_true", help="输出到 stdout 而非 job_pack.md")
     rp.set_defaults(func=cmd_render_pack)
 

@@ -47,22 +47,32 @@ uv run career-compass render-pack --stdout
 ## 推荐 analyze 工作流
 
 ```
-brief → match --write-draft → Agent 审阅/补 rationale → opportunities.yaml → render-opportunities → render-pack
+brief → match --write-draft → Agent 审阅/补 rationale → opportunities.yaml → render-opportunities
 ```
+
+（可选）`render-pack` 汇总视图 · `render-execution` 行动手册 · `track`/`replan` 长期修正
 
 Draft 是**机器初稿**；四层框架的叙事（fit_rationale、opens_up、costs）仍需 Agent 按 playbook 3 补全或修订。
 
 ## 已知局限（v1）
 
 - 技能匹配为关键词/heuristic，无语义 embedding
-- constraints 仅覆盖 risk/runway，未解析 geo/visa 与岗位地域
+- constraints 仅覆盖 risk/runway/employer_scope（**geo/签证/户口已移除**：北斗星只定择业方向，不选城市；海外方向默认纳入矩阵）
 - composite 为简单规则，非帕累托优化
 - industry_graph 仅 4 行业深度覆盖，其余为占位
 - wind 依赖 signals 与行业名子串匹配，可能漏检
+- 正交矩阵稀疏：无 taxonomy 岗位的 (capability × employer) 单元不会出现
+
+## Phase 2.2（已实现）
+
+- `employer_types.yaml` + `role_taxonomy_public.yaml`
+- `match` 默认输出 `capability_axes × employer_axes → cross_matrix`
+- `constraints.employer_preference` + L5 `skill_transfer` / `hard_gates`
+- 见 `docs/schema-v2.2.md`
 
 ## Phase 3 方向
 
 - 投递漏斗反推权重
 - JD 聚类驱动的 skill_gaps
-- 更细 geo/公司梯队约束
+- 更细公司梯队约束（geo 已移除，不再作为方向约束）
 - 可选 LLM 层仅用于 narrative，保持在 playbook 侧

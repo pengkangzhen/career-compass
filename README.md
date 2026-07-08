@@ -33,14 +33,31 @@ Not “ask AI what job fits you,” but turn career choice into a **structured, 
 
 ## Architecture (target)
 
+**Terminology** (see [`docs/user-journey.md`](docs/user-journey.md)): each layer has a **system name**, **user journey label**, and **engine stage**.
+
+| Layer | System | User journey | Engine |
+|-------|--------|--------------|--------|
+| L0 | Profile building | Know yourself | `intake` |
+| L1 | Explore world | Explore world | `scan` |
+| L2 | Decide | Decide | `analyze` |
+| L3 | Act | Act | `execute` |
+| L4 | Track | Track | `track` / `replan` |
+
 ```
-L0 Evidence     resume/CV · code projects · public info · short dialogue (values/constraints)
+L0 Profile · Know yourself · intake
+     resume/CV · code projects · dialogue (values/constraints) → profile / constraints / narrative
        ↓
-L1 Intelligence trend · supply/demand · industry graph · role taxonomy agents
+L1 Explore · scan
+     trends · supply/demand signals · industry graph · role taxonomy → signals/*.yaml
        ↓
-L2 Matching       hard constraints → multi-axis scores → skill gaps → competition correction
+L2 Decide · analyze
+     hard constraints → multi-axis scores → skill gaps → competition correction → opportunity matrix
        ↓
-L3 Delivery       opportunity matrix · job pack · execution pack · optional plan/stress-test
+L3 Act · execute
+     job pack · execution pack (pitch / resume hints / apply strategy)
+       ↓
+L4 Track · track
+     application funnel → replan → revised matrix; optional plan + stress-test
 ```
 
 Competition intensity (e.g. credential filtering, saturated tracks, shallow “API wrapper” roles) is a **scoring dimension**, not an afterthought.
@@ -74,7 +91,9 @@ Two layers — **primary career** and **side paths** — sharing one capability 
 - Pipeline: `status` / `run --stage`
 - Match engine v1 + Industry Graph + Role Taxonomy + geo filter
 - `render-pack`, `render-execution`, `track`, `replan`, `jd-analyze`, saved JD watchlist
-- **macOS app** (pywebview): Profile · Trends · Saved jobs · Matrix
+- **Agent Skill**: conversational intake in Claude Code / Cursor
+- **GUI chat**: same intake via `career-compass-app --web` 对话 Tab
+- **CLI + GUI tabs**: validate, scan, match, view matrix
 
 ## Who it’s for
 
@@ -84,21 +103,29 @@ Two layers — **primary career** and **side paths** — sharing one capability 
 
 ## Quick start
 
+### 1. Conversational intake (pick one)
+
+| Channel | Usage |
+|---------|--------|
+| **Coding agent (Skill)** | Open repo in Claude Code / Cursor; say "help me with career planning"; or `./scripts/install-cursor-skill.sh` |
+| **GUI chat** | Set LLM env vars, run `career-compass-app --web`, use 对话 tab |
+
+Both write `data/` and use `uv run career-compass validate`.
+
 ```bash
 git clone https://github.com/pengkangzhen/career-compass.git
 cd career-compass
-uv sync
-claude   # open Claude Code in this repo; say "help me with career planning"
+uv sync && uv sync --group gui   # gui group for app only
 ```
 
-**macOS desktop app (MVP)** — four tabs: Profile · Trends · Saved jobs · Opportunity matrix
+### 2. GUI (chat + viewing)
 
 ```bash
-uv sync --group gui
+uv run career-compass-app --web
 uv run career-compass-app
 ```
 
-Requires [uv](https://docs.astral.sh/uv/) + [Claude Code](https://claude.com/claude-code) (or any agent that reads `CLAUDE.md`). App icon: `assets/app-icon.png`.
+Requires [uv](https://docs.astral.sh/uv/) + Claude Code or Cursor for the agent path. See `.cursor/skills/career-compass/SKILL.md`.
 
 ## Workflow
 

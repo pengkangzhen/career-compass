@@ -42,6 +42,8 @@ role_families:
       C: ["传统企业 AI 转型组"]
 
   - id: llm_app_engineer
+    capability_id: llm_agent_app
+    employer_type_id: private
     industry_id: ai_llm
     subsector_id: llm_apps
     value_chain_node_id: rag_agent
@@ -80,6 +82,8 @@ role_families:
 
   # --- OR / 供应链 ---
   - id: or_engineer_sc
+    capability_id: sc_optimization
+    employer_type_id: private
     industry_id: or_supply_chain
     subsector_id: supply_chain_planning
     value_chain_node_id: network_optimization
@@ -117,6 +121,8 @@ role_families:
       C: ["咨询 / 外包分析"]
 
   - id: or_ml_engineer
+    capability_id: or_ml_hybrid
+    employer_type_id: private
     industry_id: or_supply_chain
     subsector_id: pricing_revenue
     value_chain_node_id: or_ml_hybrid

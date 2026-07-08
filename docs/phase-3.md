@@ -1,22 +1,23 @@
-# Phase 3 — 求职执行与反馈闭环
+# Phase 3 — 可选延伸（L3 战术 · L4 追踪）
 
-Phase 3 在 Phase 2「选行业 / 选岗位」之上，补齐**怎么投、投得怎样、偏了怎么改**。
+> **核心交付仍是机会矩阵**（L2 / `opportunities.md`）。本章在矩阵生成之后的**可选**阶段使用。
+
+Phase 3 补齐**怎么投、投得怎样、偏了怎么改**——属于战术加速器延伸，不是北斗星主交付。
 
 ## 模块
 
 | 模块 | 命令 | 产出 |
 |------|------|------|
-| 求职执行包 | `render-execution` | `execution_pack.md` — pitch、证据故事、简历建议、投递策略 |
-| 投递追踪 | `track add/list/update/funnel` | `applications.yaml` |
-| 反馈 replan | `replan [--write]` | 建议 + 可选 `opportunities.revised.yaml` |
+| 行动手册（L3） | `render-execution` | `execution_pack.md` — pitch、证据故事、简历建议、投递策略 |
+| 投递追踪（L4） | `track add/list/update/funnel` | `applications.yaml` |
+| 反馈 replan（L4） | `replan [--write]` | 建议 + 可选 `opportunities.revised.yaml` |
 | JD 分析 | `jd-analyze <file>` | stdout 技能词频与缺口 |
-| Geo 约束 | `match` 内置 | constraints.geo 过滤海外岗 |
+| 汇总视图 | `render-pack` | `job_pack.md`（与矩阵重叠，一般不必） |
 
-## 典型流程
+## 典型流程（可选）
 
 ```bash
-# 1. 规划完成后
-uv run career-compass render-pack
+# 1. 核心交付完成后，准备投递时
 uv run career-compass render-execution
 
 # 2. 投递记录

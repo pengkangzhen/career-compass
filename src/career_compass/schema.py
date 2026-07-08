@@ -17,9 +17,10 @@ import yaml
 from pydantic import BaseModel, Field, HttpUrl, ValidationError, field_validator
 
 __all__ = [
-    "RiskAppetite", "EducationLevel", "EducationStatus", "Education", "Experience", "StrengthEvidence",
-    "Preferences", "Skills", "Profile", "Constraints", "Signal",
-    "RoleFamily", "SkillGap", "Opportunity", "OpportunityMatrix", "Sector",
+    "RiskAppetite", "EducationLevel", "EducationStatus", "Education", "EducationSummary", "Experience", "StrengthEvidence",
+    "Preferences", "Skills", "Profile", "derive_education_summary", "Constraints", "EmployerPreference", "PublicSectorGates", "Signal",
+    "RoleFamily", "SkillGap", "Opportunity", "OpportunityMatrix", "CapabilityAxis", "EmployerAxis",
+    "MatrixCell", "Sector", "EmployerType", "EmployerTypesFile",
     "ValueChainNode", "Subsector", "Industry", "IndustryGraph",
     "TaxonomyRoleFamily", "RoleTaxonomy",
     "ValidationError", "ValidationIssue", "ValidationResult",
@@ -28,12 +29,22 @@ __all__ = [
     "signal_staleness_days", "count_signals",
     "load_profile", "load_constraints", "load_signals",
     "load_opportunities", "save_opportunities", "load_sectors",
-    "load_industry_graph", "load_role_taxonomy",
+    "load_industry_graph", "load_role_taxonomy", "load_employer_types",
     "ApplicationStatus", "ApplicationTier", "Application", "ApplicationsFile",
     "load_applications", "save_applications",
     "SavedJobStatus", "SavedJob", "SavedJobsFile",
     "load_saved_jobs", "save_saved_jobs",
 ]
+
+# 雇主性质轴 ID（与 data/employer_types.yaml 一致）
+DEFAULT_EMPLOYER_TYPES: tuple[str, ...] = (
+    "private",
+    "foreign",
+    "central_soe",
+    "local_soe",
+    "public_institution",
+    "civil_service",
+)
 
 
 # ---------- 占位符检测（intake 闸门）----------
@@ -136,6 +147,7 @@ class Education(BaseModel):
     honors: Optional[str] = None
     thesis_or_focus: Optional[str] = None
     advisor: Optional[str] = None
+    is_first_degree: bool = False  # 本科为第一学历（model_post_init 自动置位）
 
     def model_post_init(self, __context: object) -> None:
         if self.year is not None and self.end_year is None:
@@ -146,6 +158,8 @@ class Education(BaseModel):
                 object.__setattr__(self, "level", inferred)
         if self.status == EducationStatus.graduated and self.degree and "在读" in self.degree:
             object.__setattr__(self, "status", EducationStatus.enrolled)
+        if self.resolved_level() == EducationLevel.bachelor and not self.is_first_degree:
+            object.__setattr__(self, "is_first_degree", True)
 
     def resolved_level(self) -> EducationLevel | None:
         if self.level is not None:
@@ -193,6 +207,21 @@ class Skills(BaseModel):
     core: list[str] = Field(default_factory=list)      # 能教别人、靠它吃饭的
     adjacent: list[str] = Field(default_factory=list)  # 能快速上手、形成组合拳
     frontier: list[str] = Field(default_factory=list)  # 在学/刚接触的
+
+
+class EducationSummary(BaseModel):
+    """画像学历摘要 —— 资格闸门（EligibilityGate）的关键输入。
+
+    区分「第一学历」(bachelor) 与「最高学历」层级，用于教职/头部研究院 CV 关筛选。
+    `pedigree_pattern` 是面向人可读的学历轨迹摘要（如 "二本本_211硕博"）。
+    `same_institution_risk` 在 match 阶段对照典型目标院校计算。
+    """
+    first_degree_tier: Optional[str] = None       # 本科 school_tier
+    highest_degree_tier: Optional[str] = None     # 最高学历 school_tier
+    highest_degree_school: Optional[str] = None
+    phd_status: str = "none"  # "in_hand" | "enrolled" | "none"
+    pedigree_pattern: str = ""  # e.g. "二本本_211硕博"
+    same_institution_risk: bool = False  # 博士校 == 任一典型目标院校？match 时算
 
 
 class Profile(BaseModel):
@@ -266,6 +295,51 @@ class Profile(BaseModel):
         return missing
 
 
+def derive_education_summary(profile: Profile) -> EducationSummary:
+    """从 Profile 派生学历摘要（EligibilityGate 输入）。same_institution_risk 默认 False，
+    match 阶段对照目标典型院校再置位。"""
+    bachelor = profile.education_for(EducationLevel.bachelor)
+    master = profile.education_for(EducationLevel.master)
+    phd = profile.education_for(EducationLevel.phd)
+
+    # 最高学历：博士 > 硕士 > 本科
+    highest = phd or master or bachelor
+    highest_tier = highest.school_tier if highest else None
+    highest_school = highest.school if highest else None
+
+    first_tier = bachelor.school_tier if bachelor else None
+
+    # phd_status
+    if phd is None:
+        phd_status = "none"
+    elif phd.status == EducationStatus.enrolled:
+        phd_status = "enrolled"
+    else:
+        phd_status = "in_hand"
+
+    # pedigree_pattern
+    def _tag(edu: Education | None, label: str) -> str:
+        if edu is None or not edu.school_tier:
+            return ""
+        return f"{edu.school_tier}{label}"
+
+    parts = [p for p in (
+        _tag(bachelor, "本"),
+        _tag(master, "硕"),
+        _tag(phd, "博"),
+    ) if p]
+    pedigree = "_".join(parts)
+
+    return EducationSummary(
+        first_degree_tier=first_tier,
+        highest_degree_tier=highest_tier,
+        highest_degree_school=highest_school,
+        phd_status=phd_status,
+        pedigree_pattern=pedigree,
+        same_institution_risk=False,  # match 时对照 typical_companies 再算
+    )
+
+
 def validate_profile_text_fields(profile: Profile) -> ValidationResult:
     """额外文本字段校验（warnings）。"""
     warnings: list[ValidationIssue] = []
@@ -295,32 +369,52 @@ def validate_profile_text_fields(profile: Profile) -> ValidationResult:
     return ValidationResult(warnings=warnings)
 
 
+class EmployerPreference(BaseModel):
+    """雇主性质偏好 —— 与能力方向正交；strong_preference 时 exclude 以外轴不参与矩阵。"""
+    include: list[str] = Field(default_factory=lambda: list(DEFAULT_EMPLOYER_TYPES))
+    exclude: list[str] = Field(default_factory=list)
+    priority: list[str] = Field(default_factory=list)   # 排序越前越偏好（影响 composite 加权）
+    strong_preference: bool = False                     # True = 仅保留 include \ exclude
+
+
+class PublicSectorGates(BaseModel):
+    """体制内路径硬门槛与备考意愿（可选，analyze 阶段 L5 评分用）。
+
+    注：就业地域/户口不属于择业方向约束，已从北斗星引擎移除（见 docs/matching-engine.md）。
+    """
+    accept_exam_prep_months: Optional[int] = None
+    accept_non_research_roles: Optional[bool] = None
+    party_member: Optional[bool] = None
+
+
 class Constraints(BaseModel):
-    geo: list[str] = Field(default_factory=list)
-    visa: Optional[str] = None
+    """硬约束。就业地域(geo)/签证/户口不属于择业方向范畴，已移除——
+    北斗星只确定「做什么方向 × 什么性质雇主」，不决定「在哪个城市」。
+    家庭/runway/风险偏好/年龄/雇主性质 仍是硬墙。
+    """
     family: Optional[str] = None
     financial_runway_months: int = Field(default=0, ge=0)
     risk_appetite: RiskAppetite = RiskAppetite.medium
     reversibility_bias: str = "high"  # high=偏好低试错成本, low=愿意 all-in
     age: Optional[int] = None          # 年龄 —— 国内学术路线对年龄敏感（青基/博新年龄线）
     notes: str = ""                    # 其他硬约束的补充说明
+    employer_preference: EmployerPreference = Field(default_factory=EmployerPreference)
+    public_sector_gates: PublicSectorGates = Field(default_factory=PublicSectorGates)
+
+    def allowed_employer_ids(self) -> set[str]:
+        """strong_preference=True 时仅保留 include\\exclude；否则展示全部默认轴（除 exclude）。"""
+        exclude = set(self.employer_preference.exclude or [])
+        universe = set(DEFAULT_EMPLOYER_TYPES) - exclude
+        if self.employer_preference.strong_preference:
+            include = set(self.employer_preference.include or DEFAULT_EMPLOYER_TYPES)
+            return (include & universe) if include else universe
+        return universe
 
 
 def validate_constraints(constraints: Constraints) -> ValidationResult:
     """约束文件语义校验。"""
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
-
-    if not constraints.geo:
-        warnings.append(ValidationIssue(
-            level="warning", field="geo",
-            message="geo 为空 —— 分析阶段无法过滤地理约束",
-        ))
-    elif any(is_placeholder(g) for g in constraints.geo):
-        warnings.append(ValidationIssue(
-            level="warning", field="geo",
-            message="geo 含占位内容，请填真实可接受地点",
-        ))
 
     if constraints.family and is_placeholder(constraints.family):
         warnings.append(ValidationIssue(
@@ -332,6 +426,18 @@ def validate_constraints(constraints: Constraints) -> ValidationResult:
         warnings.append(ValidationIssue(
             level="warning", field="financial_runway_months",
             message="financial_runway_months=0 —— 建议填真实财务缓冲（月）",
+        ))
+
+    pref = constraints.employer_preference
+    if not pref.include:
+        warnings.append(ValidationIssue(
+            level="warning", field="employer_preference.include",
+            message="employer_preference.include 为空 —— 机会矩阵将缺少雇主性质轴",
+        ))
+    elif pref.strong_preference and len(pref.include) <= 2:
+        warnings.append(ValidationIssue(
+            level="warning", field="employer_preference",
+            message="strong_preference 且 include 仅 1-2 项 —— 矩阵会较窄，确认是否为硬偏好",
         ))
 
     return ValidationResult(errors=errors, warnings=warnings)
@@ -441,34 +547,85 @@ def normalize_trial_cost(value: str) -> str:
     return key
 
 
-class Opportunity(BaseModel):
-    direction: str
+class ScoredPath(BaseModel):
+    """四层评分 + 综合评级 —— Opportunity 与 MatrixCell 共用。"""
     fit: str                             # 高/中/低 — L1 比较优势
     fit_rationale: str
     match: str                           # 高/中/低 — L2 Ikigai 四圈 + 期权
     match_rationale: str
     wind: str                            # 顺风/弱顺风/逆风 — L3
     wind_rationale: str
-    risk: str                            # 低/高 — L4 试错成本（legacy: 可逆/commit）
+    risk: str                            # 低/高 — L4 试错成本
     risk_rationale: str
     composite: str = "C"                 # A-F
     opens_up: list[str] = Field(default_factory=list)
     costs: list[str] = Field(default_factory=list)
     first_step: str = ""
+    role_families: list[RoleFamily] = Field(default_factory=list)
+    skill_gaps: list[SkillGap] = Field(default_factory=list)
+    competition_index: Optional[float] = Field(default=None, ge=0, le=1)
+    # Schema 2.3 资格闸门（EligibilityGate）—— 与 domain fit 正交的 hiring fit
+    eligibility: str = "pass"            # "pass" | "fail" | "review"
+    eligibility_rationale: str = ""      # 闸门依据
+    domain_fit: str = ""                 # 与 fit 同义，澄清语义；空时回退到 fit
+    hiring_fit: str = ""                 # pass→高 / review→中 / fail→低
+    blocked: bool = False                # fail 且 strong_preference 时被剔除；否则留格但标灰
+
+    @field_validator("risk", mode="before")
+    @classmethod
+    def _normalize_trial_cost_scored(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_trial_cost(value)
+        return value
+
+
+class Opportunity(ScoredPath):
+    direction: str
     synergizes_with: list[str] = Field(default_factory=list)  # 与另一层方向的协同
     # Phase 2 可选字段（Schema 2.0，向后兼容）
     industry: Optional[str] = None
     value_chain_node: Optional[str] = None
-    role_families: list[RoleFamily] = Field(default_factory=list)
-    skill_gaps: list[SkillGap] = Field(default_factory=list)
-    competition_index: Optional[float] = Field(default=None, ge=0, le=1)
+    employer_id: Optional[str] = None    # 关联 employer_axes.id（legacy primary 可为空）
 
-    @field_validator("risk", mode="before")
-    @classmethod
-    def _normalize_trial_cost(cls, value: object) -> object:
-        if isinstance(value, str):
-            return normalize_trial_cost(value)
-        return value
+
+class CapabilityAxis(BaseModel):
+    """正交轴 1：能力 / 行业方向（与雇主性质无关）。"""
+    id: str
+    name: str
+    summary: str = ""
+    industry: Optional[str] = None
+    value_chain_node: Optional[str] = None
+    role_families: list[RoleFamily] = Field(default_factory=list)
+
+
+class EmployerAxis(BaseModel):
+    """正交轴 2：雇主性质轨（与具体技能方向无关）。"""
+    id: str
+    name: str
+    stability: str = "medium"            # low / medium / high
+    ceiling: str = "medium"              # 长期天花板
+    value_is_in: str = ""
+    trap: str = ""
+    entry_paths: list[str] = Field(default_factory=list)
+    typical_orgs: list[str] = Field(default_factory=list)
+
+
+class MatrixCell(ScoredPath):
+    """能力方向 × 雇主性质 交叉单元 —— Schema 2.2 核心交付单元。"""
+    capability_id: str
+    employer_id: str
+    entry_mechanism: str = ""             # 校招 / 国考 / 省考 / 教职招聘 …
+    hard_gates: list[str] = Field(default_factory=list)
+    skill_transfer: str = ""              # 高 / 中 / 低 — L5 技能迁移度
+    skill_transfer_rationale: str = ""
+    # Schema 2.3 资格闸门元数据 —— 从 role_family 同步，供 validate/render 使用
+    institution_tier: str = ""            # 211 / 985 / 普通本科 / 科研院所 / 高职高专 / ""
+    employer_subtype: str = ""            # university_faculty / research_institute / ...
+    eligibility_rules: list[str] = Field(default_factory=list)  # 命中的 rule ids
+
+    @property
+    def direction_label(self) -> str:
+        return f"{self.capability_id} × {self.employer_id}"
 
 
 class OpportunityMatrix(BaseModel):
@@ -476,6 +633,11 @@ class OpportunityMatrix(BaseModel):
     unified_theme: str = ""
     shared_assets: list[str] = Field(default_factory=list)
     synergy_notes: str = ""
+    # Schema 2.2 正交矩阵
+    capability_axes: list[CapabilityAxis] = Field(default_factory=list)
+    employer_axes: list[EmployerAxis] = Field(default_factory=list)
+    cross_matrix: list[MatrixCell] = Field(default_factory=list)
+    # Schema 2.1 legacy（与 cross_matrix 可并存；primary 可由最佳 cell 同步）
     primary: list[Opportunity] = Field(default_factory=list)
     side: list[Opportunity] = Field(default_factory=list)
     directions: list[Opportunity] = Field(default_factory=list)  # 旧字段，加载时迁移到 primary
@@ -486,14 +648,93 @@ class OpportunityMatrix(BaseModel):
         if self.directions and not self.primary and not self.side:
             object.__setattr__(self, "primary", list(self.directions))
 
+    def uses_orthogonal_matrix(self) -> bool:
+        return bool(self.cross_matrix and self.capability_axes and self.employer_axes)
+
     def _ranked(self, items: list[Opportunity]) -> list[Opportunity]:
         return sorted(
             items,
             key=lambda o: self._RANK.get(o.composite.strip().upper(), 9),
         )
 
-    def ranked_primary(self) -> list[Opportunity]:
-        return self._ranked(self.primary)
+    def _ranked_cells(self, cells: list[MatrixCell]) -> list[MatrixCell]:
+        return sorted(
+            cells,
+            key=lambda c: self._RANK.get(c.composite.strip().upper(), 9),
+        )
+
+    def ranked_cross_matrix(self) -> list[MatrixCell]:
+        return self._ranked_cells(self.cross_matrix)
+
+    def cells_for_capability(self, capability_id: str) -> list[MatrixCell]:
+        return self._ranked_cells([c for c in self.cross_matrix if c.capability_id == capability_id])
+
+    def cells_for_employer(self, employer_id: str) -> list[MatrixCell]:
+        return self._ranked_cells([c for c in self.cross_matrix if c.employer_id == employer_id])
+
+    def best_cell_per_capability(self, include_blocked: bool = False) -> list[MatrixCell]:
+        seen: set[str] = set()
+        out: list[MatrixCell] = []
+        for cell in self.ranked_cross_matrix():
+            if not include_blocked and cell.blocked:
+                continue
+            if cell.capability_id in seen:
+                continue
+            seen.add(cell.capability_id)
+            out.append(cell)
+        return out
+
+    def _cell_to_opportunity(self, cell: MatrixCell, cap: CapabilityAxis | None) -> Opportunity:
+        cap_name = cap.name if cap else cell.capability_id
+        emp = next((e for e in self.employer_axes if e.id == cell.employer_id), None)
+        emp_name = emp.name if emp else cell.employer_id
+        return Opportunity(
+            direction=f"{cap_name}（{emp_name}）",
+            industry=cap.industry if cap else None,
+            value_chain_node=cap.value_chain_node if cap else None,
+            employer_id=cell.employer_id,
+            fit=cell.fit,
+            fit_rationale=cell.fit_rationale,
+            match=cell.match,
+            match_rationale=cell.match_rationale,
+            wind=cell.wind,
+            wind_rationale=cell.wind_rationale,
+            risk=cell.risk,
+            risk_rationale=cell.risk_rationale,
+            composite=cell.composite,
+            opens_up=list(cell.opens_up),
+            costs=list(cell.costs),
+            first_step=cell.first_step,
+            role_families=list(cell.role_families),
+            skill_gaps=list(cell.skill_gaps),
+            competition_index=cell.competition_index,
+            eligibility=cell.eligibility,
+            eligibility_rationale=cell.eligibility_rationale,
+            domain_fit=cell.domain_fit,
+            hiring_fit=cell.hiring_fit,
+            blocked=cell.blocked,
+        )
+
+    def synthesized_primary(self, include_blocked: bool = False) -> list[Opportunity]:
+        """从 cross_matrix 每能力轴取最佳雇主 cell，供 legacy 渲染/execute 使用。
+        默认跳过 blocked cell（资格关 fail），与推荐语义一致。"""
+        cap_map = {c.id: c for c in self.capability_axes}
+        return [
+            self._cell_to_opportunity(cell, cap_map.get(cell.capability_id))
+            for cell in self.best_cell_per_capability(include_blocked=include_blocked)
+        ]
+
+    def blocked_cells(self) -> list[MatrixCell]:
+        """资格关未过的 cell —— 仅供完整对比展示，不参与推荐。"""
+        return [c for c in self.cross_matrix if c.blocked]
+
+    def ranked_primary(self, include_blocked: bool = False) -> list[Opportunity]:
+        if self.primary:
+            primary = [o for o in self.primary if include_blocked or not o.blocked]
+            return self._ranked(primary)
+        if self.uses_orthogonal_matrix():
+            return self._ranked(self.synthesized_primary(include_blocked=include_blocked))
+        return []
 
     def ranked_side(self) -> list[Opportunity]:
         return self._ranked(self.side)
@@ -503,7 +744,7 @@ class OpportunityMatrix(BaseModel):
         return self.ranked_primary()
 
     def all_directions(self) -> list[Opportunity]:
-        return list(self.primary) + list(self.side)
+        return list(self.ranked_primary()) + list(self.side)
 
 
 # ---------- 宏观行业池（用户调研）----------
@@ -613,10 +854,36 @@ class TaxonomyRoleFamily(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
     nice_to_have: list[str] = Field(default_factory=list)
     typical_companies: dict[str, list[str]] = Field(default_factory=dict)
+    capability_id: str = ""              # 正交轴 1；空则用 value_chain_node_id
+    employer_type_id: str = "private"    # 正交轴 2；见 employer_types.yaml
+    entry_mechanism: str = ""
+    hard_gates: list[str] = Field(default_factory=list)
+    skill_transfer_default: str = ""     # 高/中/低 heuristic 默认
+    # Schema 2.3 资格闸门 —— 比 employer_type_id 更细的颗粒
+    institution_tier: str = ""            # 211 / 985 / 普通本科 / 科研院所 / 高职高专 / ""
+    employer_subtype: str = ""            # university_faculty / research_institute / ...
 
 
 class RoleTaxonomy(BaseModel):
     role_families: list[TaxonomyRoleFamily] = Field(default_factory=list)
+
+
+class EmployerType(BaseModel):
+    id: str
+    name: str
+    stability: str = "medium"
+    ceiling: str = "medium"
+    value_is_in: str = ""
+    trap: str = ""
+    entry_paths: list[str] = Field(default_factory=list)
+    typical_orgs: list[str] = Field(default_factory=list)
+
+
+class EmployerTypesFile(BaseModel):
+    employer_types: list[EmployerType] = Field(default_factory=list)
+
+    def by_id(self) -> dict[str, EmployerType]:
+        return {e.id: e for e in self.employer_types}
 
 
 def load_industry_graph(path: Path) -> IndustryGraph:
@@ -624,7 +891,19 @@ def load_industry_graph(path: Path) -> IndustryGraph:
 
 
 def load_role_taxonomy(path: Path) -> RoleTaxonomy:
-    return RoleTaxonomy.model_validate(_load_yaml(path))
+    data = _load_yaml(path)
+    public_path = path.parent / "role_taxonomy_public.yaml"
+    if public_path.exists():
+        extra = _load_yaml(public_path)
+        data.setdefault("role_families", [])
+        data["role_families"] = list(data["role_families"]) + list(
+            extra.get("role_families", [])
+        )
+    return RoleTaxonomy.model_validate(data)
+
+
+def load_employer_types(path: Path) -> EmployerTypesFile:
+    return EmployerTypesFile.model_validate(_load_yaml(path))
 
 
 # ---------- 项目证据（scan-projects 自动 harvest）----------

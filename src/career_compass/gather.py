@@ -41,9 +41,6 @@ def scan_plan(
                 queries.append(f'"{sector.name}" {sector.trap} 岗位陷阱 壁垒')
 
     if constraints:
-        if constraints.geo:
-            geo = " ".join(constraints.geo[:2])
-            queries.append(f"{geo}  tech 就业市场 岗位供需 2026")
         queries.append(
             f"职业转型 risk appetite {constraints.risk_appetite.value} "
             f"runway {constraints.financial_runway_months} months 低试错成本决策"

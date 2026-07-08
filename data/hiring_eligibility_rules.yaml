@@ -1,0 +1,107 @@
+# Hiring Eligibility Rules —— Schema 2.3 资格闸门
+#
+# 与「domain fit」（研究/能力对齐）正交的「hiring fit」（招聘资格）规则。
+# 在 match 阶段 composite 评分前运行：fail → composite 不得 > D 且 blocked=true；
+# review → composite 不得 > B；pass → 不干预。
+#
+# applies_to 命中条件（任一即可，多个规则取最严 fail>review>warn>pass）：
+#   employer_subtypes: 交集命中 role.employer_subtype
+#   institution_tier_min: 目标 institution_tier >= 此档（985 > 211 > 普通本科）
+#   institution_tiers: 目标 institution_tier 命中此列表
+#   role_keywords: role.role 命中任一关键词
+#
+# conditions（全 AND）：
+#   bachelor_tier: {allow: [...], deny: [...], uncertain: [...]}
+#     本科 school_tier 命中 deny → fail；命中 uncertain → review；命中 allow → pass
+#   phd_in_hand_required: true  (profile phd_status==enrolled → review, ==none → fail)
+#   age_max: int  (constraints.age > 此值 → fail)
+#   same_institution: true  (phd school == 典型目标院校 → review)
+#
+# sources 不杜撰 URL；用 "用户案例" / "待补: ..." 占位。
+
+rules:
+  - id: faculty_211_first_degree
+    applies_to:
+      employer_subtypes: ["university_faculty"]
+      institution_tier_min: "211"
+    conditions:
+      bachelor_tier:
+        deny: ["二本", "三本"]
+        allow: ["985", "211", "双一流"]
+        uncertain: ["一本"]
+    effect: block
+    composite_cap: "D"
+    rationale: "211/双一流高校教职普遍设第一学历门槛，二本/三本在 CV screen 阶段几乎被过滤"
+    sources: ["用户案例", "待补: 高校招聘简章样本"]
+
+  - id: faculty_985_first_degree
+    applies_to:
+      employer_subtypes: ["university_faculty"]
+      institution_tier_min: "985"
+    conditions:
+      bachelor_tier:
+        deny: ["二本", "三本", "一本"]
+        allow: ["985", "双一流(985)"]
+        uncertain: ["211"]
+    effect: block
+    composite_cap: "D"
+    rationale: "985 高校教职第一学历门槛更严，一本及以下在 CV screen 阶段几乎被过滤"
+    sources: ["用户案例", "待补: 985 高校招聘简章样本"]
+
+  - id: faculty_regular_undergraduate
+    applies_to:
+      employer_subtypes: ["university_faculty"]
+      institution_tiers: ["普通本科", "应用型本科", "高职高专"]
+    conditions:
+      bachelor_tier:
+        allow: ["二本", "三本", "一本", "211", "985", "双一流"]
+        deny: []
+        uncertain: []
+    effect: pass
+    composite_cap: null
+    rationale: "普通本科/应用型本科/高职高专教职不设 211 级第一学历门槛"
+    sources: ["用户案例", "待补: 普通本科招聘样本"]
+
+  - id: phd_in_hand_required
+    applies_to:
+      role_keywords: ["教职", "研究员", "博士", "faculty", "research scientist"]
+    conditions:
+      phd_in_hand_required: true
+    effect: warn
+    composite_cap: "B"
+    rationale: "博士在读，「已取得博士学位」类 JD 需毕业后再投；可提前联系但 offer 通常 contingent on 毕业"
+    sources: ["用户案例", "待补: 教职招聘「已取得博士学位」条款样本"]
+
+  - id: same_institution_avoidance
+    applies_to:
+      employer_subtypes: ["university_faculty"]
+    conditions:
+      same_institution: true
+    effect: warn
+    composite_cap: "B"
+    rationale: "本校博士求职同校教职，部分高校有「避免近亲繁殖」限制（需核查目标校政策）"
+    sources: ["用户案例", "待补: 各校「学缘回避」政策样本"]
+
+  - id: civil_service_age_35
+    applies_to:
+      employer_subtypes: ["civil_service_admin"]
+    conditions:
+      age_max: 35
+    effect: block
+    composite_cap: "D"
+    rationale: "公务员多数岗位年龄上限 35 岁（部分应届/博士放宽至 40，按 JD 核查）"
+    sources: ["用户案例", "待补: 公务员招考公告年龄条款"]
+
+  - id: first_degree_barrier_head_research
+    applies_to:
+      role_keywords: ["AI Lab", "研究院", "研究岗", "research scientist", "研究员"]
+      institution_tier_min: "211"
+    conditions:
+      bachelor_tier:
+        deny: ["二本", "三本"]
+        allow: []
+        uncertain: ["一本", "211", "985", "双一流"]
+    effect: warn
+    composite_cap: "B"
+    rationale: "头部研究院/研究岗对第一学历偏严（非 JD 明文，CV screen 启发式）；强发表可弥补，按 case review"
+    sources: ["用户案例", "待补: 头部研究院招聘样本"]
