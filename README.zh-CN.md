@@ -122,8 +122,12 @@ L4 持续追踪 · track
 - 🚀 **（可选）行动手册** —— `render-execution` → `execution_pack.md`
 - 📋 **（可选）投递追踪与修正** —— `track` / `replan` 反馈闭环
 - 🔍 **JD 分析** —— `jd-analyze` 技能词频 vs 画像缺口
+- 📌 **岗位收藏库** —— `job add/list/show/analyze/remove` → `saved_jobs.yaml`
 - 🏭 **预置热门赛道池** —— 9 大行业，深/浅陷阱
 - 🛡️ **可选压测** —— pre-mortem + tripwire（playbook 5）
+- 🤖 **Agent Skill** —— Claude Code / Cursor 对话建画像
+- 💬 **GUI 对话** —— `career-compass-app --web`「对话」Tab，与 Skill 等价写入 `data/`
+- 🖥️ **CLI + GUI Tab** —— validate、scan、match、查看矩阵
 
 ### 规划中（Phase 4+）
 - 🤖 **Scan Agent 集群** —— 全自动联网检索写 signal
@@ -206,9 +210,10 @@ GUI 顶栏展示用户旅程；CLI / Agent 使用引擎阶段名。`uv run caree
 | `uv run career-compass render-execution [--stdout]` | （可选）战术延伸 → `execution_pack.md` |
 | `uv run career-compass track add/list/update/funnel` | 投递追踪 → `applications.yaml` |
 | `uv run career-compass replan [--write]` | 反馈闭环 → 修订建议 / `opportunities.revised.yaml` |
+| `uv run career-compass job add/list/show/analyze/remove` | 感兴趣岗位库（收藏 JD） |
 | `uv run career-compass jd-analyze <file>` | JD 技能聚类 vs 画像缺口 |
 
-> 详见 `docs/matching-engine.md`（Phase 2）、`docs/phase-3.md`（Phase 3）。
+> 详见 `docs/matching-engine.md`（Phase 2）、`docs/phase-3.md`（Phase 3）、`docs/schema-v2.md`。
 
 ## 文档与语言
 

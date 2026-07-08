@@ -2,6 +2,8 @@
 
 # Beidou (北斗星)
 
+One-liner: Beidou is an AI career **direction-choice** engine for people who feel stuck — not a resume bot, but a navigator before you apply.
+
 > A **pre-application** career decision engine. Analyzes **profile × industry structure × market trends × competition** to produce evidence-backed, personalized, executable career options — from *which industry and role* to *how to enter, what to avoid, and how to validate*.
 
 Repo codename: `career-compass`. Product name in Chinese: **北斗星** (Big Dipper — navigation metaphor).
@@ -11,7 +13,7 @@ Repo codename: `career-compass`. Product name in Chinese: **北斗星** (Big Dip
 Not “ask AI what job fits you,” but turn career choice into a **structured, evidence-based, iterable** system in hyper-competitive markets:
 
 | Question | How Beidou helps |
-|----------|------------------|
+|----------|-------------------|
 | **Which industry?** | Value chain position, moats/traps, red vs blue ocean, competition density |
 | **Which role?** | Role-family matching, seniority band, skill gaps, company tiers, geo strategy |
 | **Why would they hire me?** | Evidence-linked profile: projects/papers → verifiable strengths vs JDs |
@@ -21,34 +23,54 @@ Not “ask AI what job fits you,” but turn career choice into a **structured, 
 
 **Core principle**: the system returns **ranked options with rationale**; it does **not** pick for you. Values, family/geo constraints, and final direction stay with the user.
 
-## Why not just ask ChatGPT?
+## Differentiation: navigator, not accelerator
 
-| Generic AI / quizzes | Beidou |
-|----------------------|--------|
-| Empty forms or vague “what do you like?” | Guided intake + auto harvest from resume/projects |
-| Training-data vibes as “signals” | Every signal: **source + date + confidence** |
-| One hallucinated direction | Layered deliverables: industry → track → role → companies → 90-day steps |
-| Tailwinds only | Explicit **competition density**, shallow-role traps, credential/age barriers |
-| One-shot optimism | Pre-mortem + tripwires; un-stress-tested plans aren’t “done” |
+Most career tools focus on **tactical** steps around applying. Beidou targets the **strategic gap** they share — *where should I actually go?* — and goes deep there.
+
+### Three categories of existing tools
+
+| Type | Examples | Strengths | Limits |
+|------|----------|-----------|--------|
+| **General LLMs** | ChatGPT, Claude | Broad, flexible chat | Generic advice; no structured profile; training priors as “trends”; one-shot, not replayable |
+| **Job platforms** | LinkedIn, BOSS Zhipin, 51job | Large job inventory, short apply path | **Employer-aligned** — surfaces open roles on the platform, not your best direction |
+| **Vertical AI tools** | Resume/interview/match SaaS | Deep on single tactics | “Job-search accelerators”; rarely answer *should I enter this track at all?* |
+
+### Collective blind spots
+
+| Blind spot | Common approach | Beidou |
+|------------|-----------------|--------|
+| **Treat symptoms, not cause** | Polish resume, mock interviews — direction assumed fixed | **Career navigator**: fit × track first, then how to enter |
+| **No long-term view** | One-off consult or generation, then gone | **Long-term companion**: versioned profile/strategy; rescan signals; funnel → replan |
+| **Missing macro lens** | “You × open JDs” only | **Profile × industry structure × trends × competition**; deep/shallow value chain, competition density in scores |
+| **Not user-neutral** | Platforms push their listings; B2B tools serve employers | **No job listings to sell** — ranked options + rationale; user decides |
+
+### Where Beidou stands
+
+1. Not “optimize my resume,” but **career planning**.
+2. **Long-term companion** — a durable partner for career decisions, not a one-shot chat.
+3. **Macro vision** — industry trends and structural shifts in the algorithm, beyond the job in front of you.
+4. **User-aligned** — neutral stance; trust through options and evidence, not a hidden agenda.
 
 ## Architecture (target)
 
-**Terminology** (see [`docs/user-journey.md`](docs/user-journey.md)): each layer has a **system name**, **user journey label**, and **engine stage**.
+**Terminology** (project-wide; see [`docs/user-journey.md`](docs/user-journey.md)):
 
-| Layer | System | User journey | Engine |
-|-------|--------|--------------|--------|
+| Layer | System (architecture/code) | User journey (GUI / chat) | Engine stage (CLI / Agent) |
+|-------|----------------------------|---------------------------|----------------------------|
 | L0 | Profile building | Know yourself | `intake` |
 | L1 | Explore world | Explore world | `scan` |
 | L2 | Decide | Decide | `analyze` |
 | L3 | Act | Act | `execute` |
 | L4 | Track | Track | `track` / `replan` |
 
+> **fit / match / wind / risk** four-axis scoring inside `analyze` (see `playbooks/3-analyze.md`) is an *in-layer* scoring model — **not** the same numbering as L0–L4 above.
+
 ```
 L0 Profile · Know yourself · intake
      resume/CV · code projects · dialogue (values/constraints) → profile / constraints / narrative
        ↓
 L1 Explore · scan
-     trends · supply/demand signals · industry graph · role taxonomy → signals/*.yaml
+     trends · supply/demand signals · industry graph · role taxonomy → signals/*.yaml · saved_jobs.yaml
        ↓
 L2 Decide · analyze
      hard constraints → multi-axis scores → skill gaps → competition correction → opportunity matrix
@@ -60,40 +82,59 @@ L4 Track · track
      application funnel → replan → revised matrix; optional plan + stress-test
 ```
 
-Competition intensity (e.g. credential filtering, saturated tracks, shallow “API wrapper” roles) is a **scoring dimension**, not an afterthought.
+Competition intensity (credential filtering, JD skill stacking, shallow “API wrapper” roles, age/education gates) is a **scoring dimension** — “precision” means fit × window × enterability × trial cost on a Pareto frontier, not chasing the hottest track.
 
-## Deliverables
+## What you get
 
-### Strategic — where to go
-- Industry / sub-track ranking (deep vs shallow value-chain nodes + `trap` labels)
-- Competition density index, timing windows
+The **signature deliverable** is an **opportunity matrix** (`opportunities.md`) — several evidence-backed, comparable directions, **ranked with rationale, not a verdict**. Rendered from `opportunities.yaml`; do not hand-edit `.md`.
 
-### Tactical — which door
-- Role families (MLE, Applied Scientist, OR Engineer, …)
-- Seniority bands, company tiers (stretch / main / safety), geo strategy
+### Opportunity matrix: four modules per direction
 
-### Execution — how to enter
-- Skill gap map (JD clusters vs evidence)
-- Positioning narrative, resume/portfolio hints, application strategy
+| Module | Answers |
+|--------|---------|
+| **Where to go** | Industry/track, suitable role families |
+| **Why you** | Verifiable strengths, remaining gaps |
+| **Worth entering now?** | Competition, tailwinds/headwinds, timing |
+| **Traps** | Shallow hot roles, opportunity cost, trial price |
 
-### Feedback — after you start applying
-- `track funnel`: applied → interview → offer
-- `replan`: downgrade composites, add skill gaps → `opportunities.revised.yaml`
+When `opportunities.md` is rendered, the **main Beidou flow is complete** (L2 Decide).
 
-### Signature artifact: **Opportunity matrix**
-Two layers — **primary career** and **side paths** — sharing one capability stack (not mutually exclusive). Rendered from `opportunities.yaml` → `opportunities.md`.
+### Optional extensions (not core deliverables)
 
-## Highlights (v0.3 · Phases 1–3)
+| When | What | File / command |
+|------|------|----------------|
+| After **you pick** one direction from the matrix | Deepen direction | `strategy.md` (`4-plan` / `5-stress-test`) |
+| Before real applications | Tactical extension (L3) | `render-execution` → `execution_pack.md` |
+| While applying | Long-term correction (L4) | `track` / `replan` → revised matrix |
 
-- Guided profile: `profile.yaml`, `narrative.md`, `constraints.yaml` + strict `validate`
-- `scan-projects`: opt-in code/evidence harvest
-- `scan-plan` / `new-signal`: profile-driven market signals
-- Pipeline: `status` / `run --stage`
-- Match engine v1 + Industry Graph + Role Taxonomy + geo filter
-- `render-pack`, `render-execution`, `track`, `replan`, `jd-analyze`, saved JD watchlist
-- **Agent Skill**: conversational intake in Claude Code / Cursor
-- **GUI chat**: same intake via `career-compass-app --web` 对话 Tab
-- **CLI + GUI tabs**: validate, scan, match, view matrix
+> `render-pack` → `job_pack.md` is an overlapping summary view; usually skip unless you want a single rollup doc.
+
+## Highlights
+
+### Shipped (v0.3 · Phases 1–3)
+
+- **L0 Profile building** — Agent dialogue → `profile.yaml` / `narrative.md` / `constraints.yaml`; constraints as hard walls
+- **Project scan (profile evidence)** — `scan-projects` harvests stack/deps/scale/papers from opted-in repos (not whole-disk)
+- **L1 Explore world** — `scan-plan` derives queries; `new-signal` dedupes by topic (source + date required)
+- **Pipeline orchestration** — `status` / `run --stage` stage detection and next-step hints
+- **Opportunity matrix (core)** — `render-opportunities` → `opportunities.md`; four modules per direction
+- **L2 Match engine v1** — `match`: skill alignment, competition intensity, shallow-role penalties
+- **Industry / role knowledge** — Industry Graph + Role Taxonomy backing matrix generation
+- **(Optional) execution pack** — `render-execution` → `execution_pack.md`
+- **(Optional) track + replan** — application funnel feedback loop
+- **JD analysis** — `jd-analyze` skill terms vs profile gaps
+- **Saved JD watchlist** — `job add/list/show/analyze/remove` → `saved_jobs.yaml`
+- **Preset hot-track pool** — 9 industries with deep/shallow trap labels
+- **(Optional) stress-test** — pre-mortem + tripwires (playbook 5)
+- **Agent Skill** — conversational intake in Claude Code / Cursor
+- **GUI chat** — same intake via `career-compass-app --web` 对话 Tab
+- **CLI + GUI tabs** — validate, scan, match, view matrix
+
+### Planned (Phase 4+)
+
+- **Scan agent cluster** — automated web research → signals
+- **Periodic rescan** — stale-signal reminders
+- **Multi-profile / forkable industry knowledge packs**
 
 ## Who it’s for
 
@@ -110,88 +151,102 @@ Two layers — **primary career** and **side paths** — sharing one capability 
 | **Coding agent (Skill)** | Open repo in Claude Code / Cursor; say "help me with career planning"; or `./scripts/install-cursor-skill.sh` |
 | **GUI chat** | Set LLM env vars, run `career-compass-app --web`, use 对话 tab |
 
-Both write `data/` and use `uv run career-compass validate`.
+Both write `data/profile.yaml` etc. and use `uv run career-compass validate`.
 
 ```bash
 git clone https://github.com/pengkangzhen/career-compass.git
 cd career-compass
-uv sync && uv sync --group gui   # gui group for app only
+uv sync
+uv sync --group gui   # gui group for app only
 ```
 
 ### 2. GUI (chat + viewing)
 
 ```bash
-uv run career-compass-app --web
-uv run career-compass-app
+# LLM (CloudBase / Anthropic / OpenAI — pick one)
+export CC_CLOUDBASE_BASE_URL="https://....api.tcloudbasegateway.com/v1/ai/cloudbase"
+export CC_CLOUDBASE_API_KEY="..."
+
+uv run career-compass-app --web    # WSL-friendly: opens browser
+uv run career-compass-app          # macOS / GTK Linux desktop shell
 ```
 
-Requires [uv](https://docs.astral.sh/uv/) + Claude Code or Cursor for the agent path. See `.cursor/skills/career-compass/SKILL.md`.
+> Skill details: `.cursor/skills/career-compass/SKILL.md` · requires [uv](https://docs.astral.sh/uv/)
 
 ## Workflow
 
+Five user-journey steps map 1:1 to engine stages (don’t mix aliases). Completion criteria: [`docs/user-journey.md`](docs/user-journey.md).
+
 ```
-1-intake       guided profile        → profile / narrative / constraints     [required]
-2-scan         web research          → signals/*.yaml (sourced + dated)      [required]
-3-analyze      four-axis scoring     → opportunities.yaml → .md  ★core★   [required]
-3b-execute     applications          → execution pack → track → replan      [optional]
-4-plan         deepen one direction  → strategy.md                         [optional, user picks]
-5-stress-test  pre-mortem            → revise strategy                     [optional]
+Know yourself → Explore world → Decide → Act → Track
+    intake         scan        analyze  execute  track
 ```
 
-Phases 1–3 end at the **opportunity matrix**. Phases 4–5 only after the **user** selects a direction.
+| Step | System layer | Main outputs | Required |
+|------|--------------|--------------|----------|
+| Know yourself | L0 Profile | `profile.yaml` · `constraints.yaml` · `narrative.md` | ✅ |
+| Explore world | L1 Explore | `signals/*.yaml` · `saved_jobs.yaml` | ✅ |
+| Decide | L2 Decide | `opportunities.yaml` → `opportunities.md` | ✅ **core** |
+| Act | L3 Act | `execution_pack.md` (`render-execution`) | optional |
+| Track | L4 Track | `applications.yaml` → `replan` revised matrix | optional |
+
+**Optional deepening** (after **you pick** a direction from the matrix): `plan` → `strategy.md`; `stress-test` → revise strategy.
+
+GUI top bar shows user journey; CLI / Agent use engine stage names. `uv run career-compass status` prints both layers.
 
 ## CLI
 
 | Command | Purpose |
 |---------|---------|
 | `uv run career-compass status` | Detect pipeline stage and next steps |
-| `uv run career-compass run [--stage STAGE]` | Stage orchestration |
-| `uv run career-compass validate` | Profile/constraints completeness |
+| `uv run career-compass run [--stage STAGE]` | Stage orchestration (intake → scan → analyze) |
+| `uv run career-compass validate` | Profile/constraints completeness (errors vs warnings) |
 | `uv run career-compass brief` | Aggregate analysis brief |
 | `uv run career-compass scan-plan` | Derive search queries from profile |
 | `uv run career-compass new-signal DOMAIN TOPIC FINDING SOURCE [URL]` | Append external signal |
 | `uv run career-compass scan-projects <path>...` | Harvest project evidence |
 | `uv run career-compass render-opportunities` | Render opportunity matrix |
-| `uv run career-compass match [--write-draft]` | Matching engine |
-| `uv run career-compass render-pack` | Job positioning pack |
-| `uv run career-compass render-execution` | Execution pack |
-| `uv run career-compass track add/list/update/funnel` | Application tracking |
-| `uv run career-compass replan [--write]` | Feedback loop |
+| `uv run career-compass render-strategy` | Render `strategy.md` skeleton (after you pick a direction) |
+| `uv run career-compass match [--write-draft]` | Matching engine; optional `opportunities.draft.yaml` |
+| `uv run career-compass render-pack [--stdout]` | (Optional) rollup → `job_pack.md` |
+| `uv run career-compass render-execution [--stdout]` | (Optional) tactical extension → `execution_pack.md` |
+| `uv run career-compass track add/list/update/funnel` | Application tracking → `applications.yaml` |
+| `uv run career-compass replan [--write]` | Feedback loop → suggestions / `opportunities.revised.yaml` |
 | `uv run career-compass job add/list/show/analyze/remove` | Saved JD watchlist |
 | `uv run career-compass jd-analyze <file>` | JD vs profile gaps |
 
-See `docs/matching-engine.md`, `docs/phase-3.md`, `docs/schema-v2.md`.
-
-## Design principles
-
-- **Evidence-driven** — strengths need proof; signals need sources; scores cite rationale
-- **Constraints are walls** — geo, family, age, risk appetite filter out options, not just down-rank
-- **Deep vs shallow** — shallow hot-track roles get explicit traps and score caps
-- **Options, not verdicts** — top-N directions; user commits before `4-plan`
-- **Data vs code** — facts in `data/`; agent logic in `playbooks/`; `src/` validates/renders
-- **Iterable** — git history, signal staleness, tripwires → replan
+See `docs/matching-engine.md` (Phase 2), `docs/phase-3.md` (Phase 3), `docs/schema-v2.md`.
 
 ## Documentation & languages
 
-| Language | Agent / skill |
-|----------|----------------|
-| **English (default)** | [CLAUDE.md](CLAUDE.md) · [SKILL.md](SKILL.md) |
-| 简体中文 | [CLAUDE.zh-CN.md](CLAUDE.zh-CN.md) · [SKILL.zh-CN.md](SKILL.zh-CN.md) |
+| Language | Files |
+|----------|-------|
+| **English (default)** | This file · [CLAUDE.md](CLAUDE.md) · [SKILL.md](SKILL.md) |
+| 简体中文 | [README.zh-CN.md](README.zh-CN.md) · [CLAUDE.zh-CN.md](CLAUDE.zh-CN.md) · [SKILL.zh-CN.md](SKILL.zh-CN.md) |
 
-Playbooks under `playbooks/` are currently **Chinese** (agent conversation scripts). Technical docs in `docs/` are mixed; PRs for English docs welcome.
+Playbooks under `playbooks/` and some `docs/` remain Chinese (agent conversation scripts).
+
+## Design principles
+
+- **Evidence-driven** — strengths need proof; signals need sources; scores cite rationale; never treat model priors as “retrieved signals”
+- **Constraints are walls** — geo, family, age, risk appetite filter out options, not just down-rank
+- **Deep vs shallow** — shallow hot-track roles get explicit traps and score caps
+- **Options, not verdicts** — top-N directions; user commits before `4-plan`
+- **Data vs code** — facts in `data/`; agent logic in `playbooks/` (gradually codified in match engine); `src/` validates/renders
+- **Iterable** — git history, signal staleness, tripwires → replan
 
 ## Roadmap
 
-| Phase | Focus | Status |
-|-------|--------|--------|
-| 1 | Pipeline, validate, Schema 2.0 | ✅ |
-| 2 | Industry graph, match, job pack | ✅ |
-| 3 | Execution pack, track, replan, JD | ✅ |
-| 4 | Continuous intel OS, multi-profile | planned |
+| Phase | Focus | Key outputs |
+|-------|--------|-------------|
+| **Phase 1** | Pipeline foundation | `run`/`status` orchestrator; tighter validate; Schema 2.0; scan dedup ✅ |
+| **Phase 2** | Market sensing + role graph | Industry Graph, Role Taxonomy, competition index, skill gaps, job pack v1 ✅ |
+| **Phase 3** | Execution + feedback | execution pack, track, replan, jd-analyze ✅ |
+| **Phase 4** | Continuous intel OS | periodic rescan, multi-profile, forkable industry packs |
 
 ## Status
 
-**v0.3** — Phases 1–3 shipped. Phase 4 (automated scan agents, intel OS) planned.
+**v0.3 · Phases 1–3 shipped** — main flow: profile → match → **opportunity matrix** (core). Optional: execution pack, track, replan. Phase 4 (automated scan agents, intel OS) planned.
 
 ## License
 
