@@ -117,9 +117,11 @@ def test_render_orthogonal_matrix(tmp_path, example_profile, graph, taxonomy, em
     from career_compass.schema import save_opportunities
     save_opportunities(path, matrix)
     out = render_opportunities(path)
-    assert "正交矩阵" in out
-    assert "雇主性质" in out
-    assert "技能迁移" in out
+    assert "机会矩阵" in out
+    assert "主业" in out
+    assert "正交矩阵" not in out
+    assert "能力轴" not in out
+    assert "雇主性质轴" not in out
 
 
 def test_legacy_primary_still_renders(examples_dir: Path):

@@ -147,7 +147,7 @@ L4 持续追踪 · track
 | 方式 | 用法 |
 |------|------|
 | **编码助手（Skill）** | 打开本仓库，在 Claude Code / Cursor 里说「帮我做职业规划」；或 `./scripts/install-cursor-skill.sh` 全局安装 Skill |
-| **图形界面对话** | 配置 LLM 后 `uv run career-compass-app --web`，在浏览器「对话」Tab 聊天建画像 |
+| **图形界面对话** | `uv run career-compass-app` 或 `./scripts/beidou.sh`（LLM 默认读项目根 `.env`，见 `templates/llm.env.example`） |
 
 两者都写入 `data/profile.yaml` 等，并用 `uv run career-compass validate` 校验。
 
@@ -161,15 +161,12 @@ uv sync --group gui   # 仅 GUI 路径需要
 ### 2. 图形界面（对话 + 查看）
 
 ```bash
-# LLM（CloudBase / Anthropic / OpenAI 任选）
-export CC_CLOUDBASE_BASE_URL="https://....api.tcloudbasegateway.com/v1/ai/cloudbase"
-export CC_CLOUDBASE_API_KEY="..."
-
-uv run career-compass-app --web    # WSL 推荐：浏览器打开
-uv run career-compass-app          # macOS / 有 GTK 的 Linux 桌面
+./scripts/beidou.sh              # 浏览器打开（推荐）
+uv run career-compass-app
+uv run career-compass-app --desktop   # 桌面窗口（需 pywebview）
 ```
 
-> Skill 细节：`.cursor/skills/career-compass/SKILL.md` · 依赖 [uv](https://docs.astral.sh/uv/)
+LLM 默认 **腾讯云 CloudBase**（`hy3-preview`）。项目根 `.env` 自动加载；可复制 `templates/llm.env.example` 修改。
 
 ## 工作流
 

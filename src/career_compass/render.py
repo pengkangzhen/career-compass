@@ -6,8 +6,11 @@ from pathlib import Path
 import yaml
 from jinja2 import Template
 
+from .cross_track import render_cross_track_section
 from .schema import (
+    CapabilityAxis,
     EducationStatus,
+    Opportunity,
     SkillGap,
     load_constraints,
     load_employer_types,
@@ -198,7 +201,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 | 模块 | 问什么 |
 |------|--------|
-| **往哪走** | 去哪个行业/赛道、适合什么岗位 |
+| **往哪走** | 去哪个行业/赛道、在价值链哪一环创造价值 |
 | **凭什么** | 你有什么可验证优势、还缺什么 |
 | **值不值得现在进** | 竞争多激烈、现在是顺风还是逆风 |
 | **坑在哪** | 浅层热门岗、主要机会成本、试错代价 |
@@ -216,129 +219,56 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ---
 
-{% if uses_orthogonal %}
-## 正交矩阵（能力方向 × 雇主性质）
-
-> Schema 2.2：**行 = 能力/行业方向，列 = 雇主性质**。有的人对央企/公务员/民企有强偏好——请按列筛选，不要只看综合最高格。
-
-### 能力轴（你在做什么）
-
-| ID | 能力方向 | 行业/价值链 |
-|----|----------|-------------|
-{% for cap in capability_axes -%}
-| {{ cap.id }} | {{ cap.name }} | {{ cap.industry or "—" }}{% if cap.value_chain_node %} / {{ cap.value_chain_node }}{% endif %} |
-{% endfor %}
-
-### 雇主性质轴
-
-| ID | 雇主性质 | 稳定性 | 天花板 | 典型入口 |
-|----|----------|--------|--------|----------|
-{% for emp in employer_axes -%}
-| {{ emp.id }} | {{ emp.name }} | {{ emp.stability }} | {{ emp.ceiling }} | {{ emp.entry_paths|join("、") if emp.entry_paths else "—" }} |
-{% endfor %}
-
-### 交叉矩阵（综合评级）
-
-> 资格关 fail 的格用 ~~删除线~~ 标注，不参与推荐（见下方「资格关未过」专节）。
-
-| 能力 ↓ \\ 雇主 → | {% for emp in employer_axes %}{{ emp.name }} | {% endfor %}
-|{% for emp in employer_axes %}---|{% endfor %}---|
-{% for cap in capability_axes -%}
-| **{{ cap.name }}** | {% for emp in employer_axes %}{{ cell_display.get(cap.id ~ ":" ~ emp.id, "—") }} | {% endfor %}
-{% endfor %}
-
-### 交叉矩阵详情（含资格关 / L5 技能迁移 / 硬门槛）
-
-{% for cell in ranked_cells %}
-#### {{ cell_labels.get(cell.capability_id ~ ":" ~ cell.employer_id, cell.capability_id) }}　·　综合 {{ cell.composite }}{% if cell.blocked %}　·　资格关未过（blocked）{% endif %}
-
-| 维度 | 评级 | 依据 |
-|------|------|------|
-| **资格关** | {{ cell.eligibility | default("pass") }} | {{ cell.eligibility_rationale or "—" }} |
-| 比较优势 | {{ cell.fit }} | {{ cell.fit_rationale }} |
-| Ikigai 四圈 | {{ cell.match }} | {{ cell.match_rationale }} |
-| 顺风/逆风 | {{ cell.wind }} | {{ cell.wind_rationale }} |
-| 试错成本 | {{ cell.risk }} | {{ cell.risk_rationale }} |
-| **技能迁移** | {{ cell.skill_transfer or "—" }} | {{ cell.skill_transfer_rationale or "—" }} |
-
-{% if cell.entry_mechanism %}- **入口机制**：{{ cell.entry_mechanism }}
+{% if cross_track_section %}
+{{ cross_track_section }}
 {% endif %}
-{% if cell.hard_gates %}- **硬门槛**：{{ cell.hard_gates|join("；") }}
-{% endif %}
-{% if cell.skill_gaps %}- **还缺什么**：
-{% for g in cell.skill_gaps %}
-  - **{{ g.skill }}**（{{ g.priority }}）
-{% endfor %}
-{% endif %}
-- **试错第一步**：{{ cell.first_step or "(待填)" }}
+## 机会矩阵
 
----
-{% endfor %}
+> 下列方向已综合你的能力、偏好与约束；按综合评级排序，**系统不替你做选择**。
+> **矩阵按「价值定位」组织，不按岗位头衔**——AI 浪潮下岗位名快速生灭，但「解决什么问题、用什么能力组合」相对稳定；详情中的市场称呼仅供投递检索参考。
 
-### 按雇主性质汇总（偏好强时先看此表）
-
-{% for emp in employer_axes %}
-#### 列：{{ emp.name }}
-
-| 能力方向 | 综合 | 技能迁移 | 入口 |
-|----------|------|----------|------|
-{% for cell in cells_by_employer.get(emp.id, []) -%}
-| {{ cap_names.get(cell.capability_id, cell.capability_id) }} | {{ cell.composite }} | {{ cell.skill_transfer or "—" }} | {{ cell.entry_mechanism or "—" }} |
-{% endfor %}
-
-{% endfor %}
-
-{% if blocked_cells %}
-## 资格关未过（blocked — 仅完整对比，不参与推荐）
-
-> 下列单元招聘资格关 fail（如第一学历门槛、年龄线），composite 已封顶至 D。保留作完整对比，但 `synthesized_primary` / `ranked_primary` 已剔除。
-
-| 能力方向 | 雇主性质 | 综合 | 资格关 | 依据 | 命中规则 |
-|----------|----------|------|--------|------|----------|
-{% for cell in blocked_cells -%}
-| {{ cap_names.get(cell.capability_id, cell.capability_id) }} | {{ emp_names.get(cell.employer_id, cell.employer_id) }} | {{ cell.composite }} | {{ cell.eligibility }} | {{ cell.eligibility_rationale }} | {{ cell.eligibility_rules | join("；") }} |
-{% endfor %}
-
-{% endif %}
-{% endif %}
 ## 主业（Primary）
 
-> {% if uses_orthogonal %}下列为各能力轴在你**当前雇主偏好下**的最佳列合成视图；完整交叉见上表。{% else %}主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。{% endif %}
+> 主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。
 
 ### 主业总览
 
-| # | 方向 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
-|---|------|----------|------------|-----------|--------|------|
-{% for o in ranked_primary -%}
-| {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} |
+| # | 价值定位 | 赛道 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
+|---|----------|------|----------|----------|----------|------------|-----------|--------|------|
+{% for row in primary_rows -%}
+| {{ loop.index }} | {{ row.positioning }} | {{ row.track }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} |
 {% else -%}
-| — | (暂无主业方向) | — | — | — | — | — |
+| — | (暂无主业方向) | — | — | — | — | — | — | — | — |
 {% endfor %}
 
 ### 主业对比摘要
 
-| 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
-|------|------|-------------------|-------------|-----------|
-{% for o in ranked_primary -%}
-| {{ o.direction }} | {{ o.composite }} | {{ o.fit_rationale[:60] }}{% if o.fit_rationale|length > 60 %}…{% endif %} | {{ o.costs[0] if o.costs else "—" }} | {{ o.first_step[:50] if o.first_step else "—" }}{% if o.first_step and o.first_step|length > 50 %}…{% endif %} |
+| 价值定位 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
+|----------|------|-------------------|-------------|-----------|
+{% for row in primary_rows -%}
+| {{ row.positioning }} · {{ row.track }} | {{ row.opp.composite }} | {{ row.opp.fit_rationale[:60] }}{% if row.opp.fit_rationale|length > 60 %}…{% endif %} | {{ row.opp.costs[0] if row.opp.costs else "—" }} | {{ row.opp.first_step[:50] if row.opp.first_step else "—" }}{% if row.opp.first_step and row.opp.first_step|length > 50 %}…{% endif %} |
 {% endfor %}
 
 ### 主业详情
 
-{% for o in ranked_primary %}
-#### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
+{% for row in primary_rows %}
+#### {{ loop.index }}. {{ row.positioning }}（{{ row.emp_label }}）　·　综合 {{ row.opp.composite }}
+
+> {{ row.summary }}
 
 **往哪走**
+
+{% set o = row.opp %}
 
 {% if o.industry %}- 行业/赛道：{{ o.industry }}
 {% endif %}
 {% if o.value_chain_node %}- 价值链位置：{{ o.value_chain_node }}
 {% endif %}
 {% if o.role_families %}
-- 适合岗位：
+- 市场称呼示例（岗位名会变，能力组合才是锚点；仅供投递检索）：
 
-| 岗位 | 资历 | 匹配度 | 竞争强度 |
-|------|------|--------|----------|
+| 当前常见称呼 | 资历 | 匹配度 | 竞争强度 |
+|-------------|------|--------|----------|
 {% for rf in o.role_families -%}
 | {{ rf.role }} | {{ rf.seniority or "—" }} | {{ rf.match_score if rf.match_score is not none else "—" }} | {{ rf.competition_index if rf.competition_index is not none else "—" }} |
 {% endfor %}
@@ -399,18 +329,22 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 副业总览
 
-| # | 方向 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 | 协同主业 |
-|---|------|----------|------------|-----------|--------|------|----------|
-{% for o in ranked_side -%}
-| {{ loop.index }} | {{ o.direction }} | {{ o.fit }} | {{ o.match }} | {{ o.wind }} | {{ o.risk }} | {{ o.composite }} | {{ o.synergizes_with|join("；") if o.synergizes_with else "—" }} |
+| # | 价值定位 | 赛道 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 | 协同主业 |
+|---|----------|------|----------|----------|----------|------------|-----------|--------|------|----------|
+{% for row in side_rows -%}
+| {{ loop.index }} | {{ row.positioning }} | {{ row.track }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} | {{ row.opp.synergizes_with|join("；") if row.opp.synergizes_with else "—" }} |
 {% else -%}
-| — | (暂无副业方向) | — | — | — | — | — | — |
+| — | (暂无副业方向) | — | — | — | — | — | — | — | — | — |
 {% endfor %}
 
 ### 副业详情
 
-{% for o in ranked_side %}
-#### {{ loop.index }}. {{ o.direction }}　·　综合 {{ o.composite }}
+{% for row in side_rows %}
+{% set o = row.opp %}
+#### {{ loop.index }}. {{ row.positioning }}（{{ row.emp_label }}）　·　综合 {{ o.composite }}
+
+> {{ row.summary }}
+
 {% if o.synergizes_with %}
 **协同主业**：{{ o.synergizes_with|join(" · ") }}
 
@@ -453,43 +387,90 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 """
 
 
-def render_opportunities(opportunities_path: Path) -> str:
-    matrix = load_opportunities(opportunities_path)
-    uses_orthogonal = matrix.uses_orthogonal_matrix()
-    cell_display: dict[str, str] = {}
-    cell_labels: dict[str, str] = {}
-    cap_names = {c.id: c.name for c in matrix.capability_axes}
-    emp_names = {e.id: e.name for e in matrix.employer_axes}
-    for cell in matrix.cross_matrix:
-        key = f"{cell.capability_id}:{cell.employer_id}"
-        # blocked 单元用删除线标注，不参与推荐
-        if cell.blocked:
-            cell_display[key] = f"~~{cell.composite}~~"
+def _resolve_opportunity_display(
+    o: Opportunity,
+    *,
+    cap_by_name: dict[str, CapabilityAxis],
+    emp_by_id: dict[str, str],
+) -> dict:
+    """为总览表解析展示字段（兼容未填充 capability_name 的旧 YAML）。"""
+    cap_name = o.capability_name
+    if not cap_name:
+        if "（" in o.direction:
+            cap_name = o.direction.split("（", 1)[0].strip()
         else:
-            cell_display[key] = cell.composite
-        cap = cap_names.get(cell.capability_id, cell.capability_id)
-        emp = emp_names.get(cell.employer_id, cell.employer_id)
-        cell_labels[key] = f"{cap} × {emp}"
-    cells_by_employer: dict[str, list] = {}
-    for emp in matrix.employer_axes:
-        cells_by_employer[emp.id] = matrix.cells_for_employer(emp.id)
+            cap_name = o.direction
+
+    emp_label = o.employer_label
+    if not emp_label:
+        if o.employer_id and o.employer_id in emp_by_id:
+            emp_label = emp_by_id[o.employer_id]
+        elif "（" in o.direction:
+            emp_label = o.direction.split("（", 1)[1].rstrip("）").strip()
+        else:
+            emp_label = "—"
+
+    top_role = o.role_families[0].role if o.role_families else ""
+    positioning = cap_name
+    track = o.industry or cap_name
+
+    summary = o.summary or o.value_chain_node or ""
+    if not summary:
+        cap = cap_by_name.get(cap_name)
+        if cap:
+            summary = cap.summary or cap.value_chain_node or ""
+    if not summary and "价值链:" in o.fit_rationale:
+        summary = o.fit_rationale.split("价值链:", 1)[1].strip()
+    if not summary:
+        summary = "—"
+
+    return {
+        "opp": o,
+        "cap_name": cap_name,
+        "positioning": positioning,
+        "emp_label": emp_label,
+        "top_role": top_role,
+        "track": track,
+        "summary": summary,
+    }
+
+
+def _display_rows(
+    opps: list[Opportunity],
+    *,
+    cap_by_name: dict[str, CapabilityAxis],
+    emp_by_id: dict[str, str],
+) -> list[dict]:
+    return [
+        _resolve_opportunity_display(o, cap_by_name=cap_by_name, emp_by_id=emp_by_id)
+        for o in opps
+    ]
+
+
+def render_opportunities(
+    opportunities_path: Path,
+    profile_path: Path | None = None,
+) -> str:
+    matrix = load_opportunities(opportunities_path)
+    cap_by_name = {c.name: c for c in matrix.capability_axes}
+    emp_by_id = {e.id: e.name for e in matrix.employer_axes}
+    ctx = dict(cap_by_name=cap_by_name, emp_by_id=emp_by_id)
+
+    cross_section = ""
+    prof_path = profile_path or opportunities_path.parent / "profile.yaml"
+    if prof_path.is_file():
+        cross_section = render_cross_track_section(load_profile(prof_path), matrix)
+
     return Template(_OPPORTUNITIES_TEMPLATE).render(
         generated_on=matrix.generated_on.isoformat(),
         unified_theme=matrix.unified_theme,
         shared_assets=matrix.shared_assets,
         synergy_notes=matrix.synergy_notes,
+        cross_track_section=cross_section,
         ranked_primary=matrix.ranked_primary(),
         ranked_side=matrix.ranked_side(),
-        uses_orthogonal=uses_orthogonal,
-        capability_axes=matrix.capability_axes,
-        employer_axes=matrix.employer_axes,
-        ranked_cells=matrix.ranked_cross_matrix(),
-        blocked_cells=matrix.blocked_cells(),
-        cell_display=cell_display,
-        cell_labels=cell_labels,
-        cap_names=cap_names,
-        emp_names=emp_names,
-        cells_by_employer=cells_by_employer,
+        primary_rows=_display_rows(matrix.ranked_primary(), **ctx),
+        side_rows=_display_rows(matrix.ranked_side(), **ctx),
     )
 
 

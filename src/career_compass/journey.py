@@ -73,8 +73,8 @@ CORE_COMPLETE_HINT = (
 
 NEXT_HINTS: dict[JourneyStep, str] = {
     JourneyStep.know_self: "在「对话」里聊聊你的背景、经历和硬约束",
-    JourneyStep.explore: "查看「行业趋势」，或用 Agent 采集带来源的市场信号",
-    JourneyStep.decide: "打开「机会矩阵」，比较几个方向后自行选择",
+    JourneyStep.explore: "（可选）采集行业信号或收藏感兴趣的 JD，丰富分析输入",
+    JourneyStep.decide: "打开「机会矩阵」生成并比较方向——不依赖岗位收藏",
     JourneyStep.act: "（可选）运行 render-execution 生成行动手册，准备投递材料",
     JourneyStep.track: "若开始投递，用 track 记录进展；无回音时用 replan 修订矩阵",
 }
@@ -102,13 +102,10 @@ def assess_journey_progress(data_dir: Path) -> JourneyProgress:
     signal_count = count_signals(data_dir / "signals")
     applications_path = data_dir / "applications.yaml"
     execution_pack = data_dir / "execution_pack.md"
-    saved_jobs = data_dir / "saved_jobs.yaml"
 
     know_self_done = not state.validation_errors
-    explore_done = (
-        signal_count >= MIN_SIGNALS_FOR_ANALYZE
-        or saved_jobs.is_file()
-    )
+    # 探索完成 = 有外部市场信号；岗位收藏是画像补充，不计入此步
+    explore_done = signal_count >= MIN_SIGNALS_FOR_ANALYZE
     decide_done = state.has_opportunities_md
     act_done = execution_pack.is_file()
     has_applications = False
@@ -134,8 +131,6 @@ def assess_journey_progress(data_dir: Path) -> JourneyProgress:
 def current_journey_step(progress: JourneyProgress) -> JourneyStep:
     if not progress.know_self_done:
         return JourneyStep.know_self
-    if not progress.explore_done:
-        return JourneyStep.explore
     if not progress.decide_done:
         return JourneyStep.decide
     # 核心交付完成；L3/L4 为可选延伸，默认停留在「持续追踪」
@@ -159,6 +154,7 @@ class JourneyStatus:
             "next_hint": self.next_hint,
             "engine_stage": self.engine_stage,
             "know_self_complete": self.progress.know_self_done,
+            "explore_complete": self.progress.explore_done,
             "core_complete": self.progress.core_done,
         }
 

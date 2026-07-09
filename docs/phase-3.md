@@ -40,6 +40,7 @@ uv run career-compass replan --write
 ## 局限
 
 - JD 分析为关键词/heuristic，非语义 embedding
+- **JD 关联矩阵方向**：`data/jd_link_rules.yaml` pattern → capability_id；有 `opportunities.yaml` 时合成「能力（雇主）」展示名
 - replan 不调用 LLM，修订需人工审阅后再 `mv` 为 opportunities.yaml
 - tracker 无 Web UI，纯 YAML + CLI
 

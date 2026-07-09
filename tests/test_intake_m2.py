@@ -39,10 +39,9 @@ def test_compute_intake_progress_percent():
         skills_ok=False,
         evidence_ok=False,
         values_ok=False,
-        geo_ok=False,
         narrative_ok=False,
     )
-    assert progress.percent == 29  # 2/7 rounded
+    assert progress.percent == 33  # 2/6 rounded
 
 
 def test_narrative_sections_ok_requires_content():

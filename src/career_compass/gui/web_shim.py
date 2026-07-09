@@ -28,3 +28,10 @@ WEB_API_SHIM = """
   }
 })();
 """
+
+
+def inject_web_shim(html: str) -> str:
+    marker = "<script>"
+    if marker not in html:
+        return html
+    return html.replace(marker, f"<script>\n{WEB_API_SHIM}\n", 1)

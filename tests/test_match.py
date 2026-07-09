@@ -8,8 +8,10 @@ from career_compass.match import (
     competition_label_to_float,
     estimate_competition_index,
     generate_candidate_opportunities,
+    industry_domain_anchor,
     passes_constraints,
     score_profile_vs_role,
+    skill_match_level,
 )
 from career_compass.schema import (
     Constraints,
@@ -145,7 +147,8 @@ def test_passes_constraints_short_runway_blocks_phd():
     assert passes_constraints(role, constraints, 0.8) is False
 
 
-def test_passes_constraints_geo_blocks_overseas():
+def test_passes_constraints_geo_not_enforced():
+    """geo 已从硬约束引擎移除（北斗星只定方向，不选城市）。"""
     role = TaxonomyRoleFamily(
         id="x",
         industry_id="ai_llm",
@@ -156,7 +159,7 @@ def test_passes_constraints_geo_blocks_overseas():
         required_skills=["Python"],
     )
     constraints = Constraints(geo=["上海", "北京"])
-    assert passes_constraints(role, constraints, 0.8) is False
+    assert passes_constraints(role, constraints, 0.8) is True
 
 
 def test_passes_constraints_geo_allows_overseas_when_noted():
@@ -201,3 +204,28 @@ def test_generate_opportunities_have_phase2_fields(example_profile, graph, taxon
     assert o.value_chain_node
     assert o.skill_gaps is not None
     assert o.competition_index is not None
+
+
+def test_molecular_modeling_not_matched_via_reinforcement_learning():
+    """强化学习 不应误触发 分子建模 别名。"""
+    profile = Profile.model_validate({
+        "name": "t",
+        "skills": {
+            "core": ["运筹优化：启发式 / 元启发式 / 强化学习混合求解", "Python", "机器学习"],
+            "adjacent": [],
+            "frontier": [],
+        },
+        "strength_evidence": [],
+        "preferences": {"energized_by": [], "drained_by": [], "values_ranked": []},
+    })
+    assert skill_match_level("分子建模", profile) is None
+
+
+def test_or_profile_does_not_high_match_biopharma():
+    data = Path(__file__).resolve().parent.parent / "data"
+    profile = load_profile(data / "profile.yaml")
+    taxonomy = load_role_taxonomy(data / "role_taxonomy.yaml")
+    role = next(r for r in taxonomy.role_families if r.id == "comp_chem_ai")
+    result = score_profile_vs_role(profile, None, role)
+    assert result["match_score"] < 0.5
+    assert industry_domain_anchor(profile, "biopharma") < 0.5

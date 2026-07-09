@@ -149,7 +149,7 @@ When `opportunities.md` is rendered, the **main Beidou flow is complete** (L2 De
 | Channel | Usage |
 |---------|--------|
 | **Coding agent (Skill)** | Open repo in Claude Code / Cursor; say "help me with career planning"; or `./scripts/install-cursor-skill.sh` |
-| **GUI chat** | Set LLM env vars, run `career-compass-app --web`, use 对话 tab |
+| **GUI chat** | Run `career-compass-app` or `./scripts/beidou.sh` — LLM preconfigured via repo `.env` (see `templates/llm.env.example`) |
 
 Both write `data/profile.yaml` etc. and use `uv run career-compass validate`.
 
@@ -163,15 +163,12 @@ uv sync --group gui   # gui group for app only
 ### 2. GUI (chat + viewing)
 
 ```bash
-# LLM (CloudBase / Anthropic / OpenAI — pick one)
-export CC_CLOUDBASE_BASE_URL="https://....api.tcloudbasegateway.com/v1/ai/cloudbase"
-export CC_CLOUDBASE_API_KEY="..."
-
-uv run career-compass-app --web    # WSL-friendly: opens browser
-uv run career-compass-app          # macOS / GTK Linux desktop shell
+./scripts/beidou.sh              # browser (recommended)
+uv run career-compass-app        # same
+uv run career-compass-app --desktop   # native window (pywebview)
 ```
 
-> Skill details: `.cursor/skills/career-compass/SKILL.md` · requires [uv](https://docs.astral.sh/uv/)
+LLM defaults to **Tencent CloudBase** (`hy3-preview`). Copy `templates/llm.env.example` → `.env` if needed; `beidou.sh` auto-loads `.env`.
 
 ## Workflow
 

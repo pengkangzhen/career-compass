@@ -586,6 +586,10 @@ class Opportunity(ScoredPath):
     industry: Optional[str] = None
     value_chain_node: Optional[str] = None
     employer_id: Optional[str] = None    # 关联 employer_axes.id（legacy primary 可为空）
+    # 展示用（正交矩阵合成时填充；旧 YAML 可由 render 回退解析）
+    capability_name: str = ""
+    employer_label: str = ""
+    summary: str = ""                    # 核心工作 / 价值链价值一句话
 
 
 class CapabilityAxis(BaseModel):
@@ -690,6 +694,9 @@ class OpportunityMatrix(BaseModel):
         emp_name = emp.name if emp else cell.employer_id
         return Opportunity(
             direction=f"{cap_name}（{emp_name}）",
+            capability_name=cap_name,
+            employer_label=emp_name,
+            summary=(cap.summary if cap else "") or (cap.value_chain_node if cap else ""),
             industry=cap.industry if cap else None,
             value_chain_node=cap.value_chain_node if cap else None,
             employer_id=cell.employer_id,
@@ -806,6 +813,9 @@ class ValueChainNode(BaseModel):
     name: str
     value_is_in: str = ""
     trap: str = ""
+    # 市场供需（赛道级，与用户无关；匹配时按画像亲和度决定是否触发）
+    market_saturation: str = ""       # high | medium | "" 
+    saturation_note: str = ""
 
 
 class Subsector(BaseModel):
@@ -818,6 +828,7 @@ class Industry(BaseModel):
     id: str
     name: str
     why_hot: str = ""
+    domain_markers: list[str] = Field(default_factory=list)
     subsectors: list[Subsector] = Field(default_factory=list)
 
 
@@ -841,6 +852,12 @@ class IndustryGraph(BaseModel):
             if ind.id == industry_id:
                 return ind.name
         return industry_id
+
+    def domain_markers_for(self, industry_id: str) -> tuple[str, ...]:
+        for ind in self.industries:
+            if ind.id == industry_id:
+                return tuple(ind.domain_markers)
+        return ()
 
 
 class TaxonomyRoleFamily(BaseModel):
@@ -904,6 +921,34 @@ def load_role_taxonomy(path: Path) -> RoleTaxonomy:
 
 def load_employer_types(path: Path) -> EmployerTypesFile:
     return EmployerTypesFile.model_validate(_load_yaml(path))
+
+
+class CrossTrackOpportunity(BaseModel):
+    """交叉赛道：方法论可迁移、行业语境需补（数据驱动，非用户定制）。"""
+    industry_id: str
+    value_chain_node_id: str
+    potential: str = "emerging"       # emerging | adjacent
+    label: str
+    method_note: str
+    domain_gap_note: str
+    opens_up: str = ""
+    method_pattern: str = ""          # 空=任意；or / llm / ml 等，限制方法论画像
+
+
+class CrossTrackFile(BaseModel):
+    opportunities: list[CrossTrackOpportunity] = Field(default_factory=list)
+
+    def lookup(self, industry_id: str, node_id: str) -> CrossTrackOpportunity | None:
+        for o in self.opportunities:
+            if o.industry_id == industry_id and o.value_chain_node_id == node_id:
+                return o
+        return None
+
+
+def load_cross_track(path: Path) -> CrossTrackFile:
+    if not path.is_file():
+        return CrossTrackFile()
+    return CrossTrackFile.model_validate(_load_yaml(path))
 
 
 # ---------- 项目证据（scan-projects 自动 harvest）----------

@@ -103,6 +103,8 @@ role_families:
       C: ["物流软件商"]
 
   - id: pricing_scientist
+    capability_id: dynamic_pricing
+    employer_type_id: private
     industry_id: or_supply_chain
     subsector_id: pricing_revenue
     value_chain_node_id: dynamic_pricing
@@ -139,6 +141,50 @@ role_families:
       A: ["大厂物流/广告优化", "自动驾驶规划"]
       B: ["工业软件", "能源优化"]
       C: ["研究院转化团队"]
+
+  # --- 半导体 × OR 交叉赛道 ---
+  - id: semi_fab_or_engineer
+    capability_id: semi_fab_or
+    employer_type_id: private
+    industry_id: semicon
+    subsector_id: fab_manufacturing
+    value_chain_node_id: fab_scheduling
+    role: "晶圆厂排程 / 厂内物流优化工程师"
+    typical_seniority: "博士 / 3-5年"
+    required_skills:
+      - "运筹优化"
+      - "MIP"
+      - "Python"
+    nice_to_have:
+      - "Gurobi"
+      - "仿真"
+      - "启发式"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["中芯国际", "华虹", "长江存储"]
+      B: ["封测龙头计划部", "半导体设备商软件组"]
+      C: ["工业软件 / MES 厂商"]
+
+  - id: semi_yield_or_scientist
+    capability_id: semi_yield_or
+    employer_type_id: private
+    industry_id: semicon
+    subsector_id: fab_manufacturing
+    value_chain_node_id: yield_optimization
+    role: "半导体良率 / 产能优化科学家"
+    typical_seniority: "博士"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "实验设计"
+      - "统计过程控制"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["头部晶圆厂数字化部", "半导体 AI 创业公司"]
+      B: ["设备商算法组", "封测厂"]
+      C: ["咨询 / 工业软件"]
 
   # --- 机器人 ---
   - id: robotics_perception

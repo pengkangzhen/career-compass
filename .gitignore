@@ -36,3 +36,6 @@ data/signals/*
 .idea/
 .vscode/
 .codegraph/
+
+# Frontend
+frontend/node_modules/

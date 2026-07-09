@@ -1,0 +1,66 @@
+# 方法论画像模式 —— 交叉赛道识别用（全用户共享）
+
+patterns:
+  or:
+    markers:
+      - 运筹
+      - optimization
+      - or
+      - mip
+      - gurobi
+      - cplex
+      - or-tools
+      - 启发式
+      - 元启发式
+      - 列生成
+      - vrp
+      - 排程
+      - 规划
+      - 求解器
+      - 组合优化
+    domain_specific_skills:
+      - 分子建模
+      - 分子生物学
+      - 生物统计
+      - rtl
+      - verilog
+      - 机械设计
+
+  llm:
+    markers:
+      - llm
+      - 大模型
+      - agent
+      - langgraph
+      - rag
+      - prompt
+      - 智能体
+      - nlp
+      - 自然语言
+    domain_specific_skills: []
+
+  ml:
+    markers:
+      - 机器学习
+      - ml
+      - machine learning
+      - pytorch
+      - tensorflow
+      - 深度学习
+    domain_specific_skills:
+      - 分子建模
+      - rtl
+
+# 赛道亲和度：何时对当前用户展示饱和/交叉提示
+affinity:
+  domain_min: 0.5
+  match_min: 0.55
+
+# 交叉赛道 match 调整权重
+cross_track_scoring:
+  method_weight: 0.65
+  domain_weight: 0.35
+  or_native_blend: 0.8
+
+# 未知行业 domain_anchor 默认值（保守，防误推）
+unknown_domain_anchor: 0.35

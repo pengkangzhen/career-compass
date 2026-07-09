@@ -1,0 +1,157 @@
+# JD → 机会矩阵方向关联规则（全用户共享）
+# analyze_saved_job 用：pattern 命中 capability_id，再结合 opportunities.yaml 合成展示名
+
+rules:
+  - capability_id: decision_agent_or
+    patterns:
+      - agent
+      - langgraph
+      - llm
+      - rag
+      - 大模型
+      - 智能体
+      - ai for or
+      - 决策智能
+      - tool use
+      - 多智能体
+
+  - capability_id: llm_agent_app
+    patterns:
+      - langchain
+      - prompt
+      - 应用层
+      - chatbot
+      - copilot
+
+  - capability_id: sc_optimization
+    patterns:
+      - 供应链
+      - 物流
+      - 调度
+      - vrp
+      - tsp
+      - 排产
+      - 仓储
+      - 港航
+      - 航运
+      - 班列
+      - 网络规划
+      - 库存优化
+      - gurobi
+      - cplex
+      - mip
+      - 整数规划
+
+  - capability_id: or_ml_hybrid
+    patterns:
+      - 学习增强
+      - learning to optimize
+      - 预测.*优化
+      - or.*ml
+      - 预测-优化
+
+  - capability_id: semi_fab_or
+    patterns:
+      - 半导体
+      - 晶圆
+      - fab
+      - 晶圆厂
+      - amhs
+      - aps
+      - batch scheduling
+      - 厂内物流
+
+  - capability_id: semi_yield_or
+    patterns:
+      - 良率
+      - yield
+      - 产能优化
+      - wip
+
+  - capability_id: dynamic_pricing
+    patterns:
+      - 定价
+      - 收益管理
+      - revenue management
+      - 动态定价
+      - 因果推断
+
+  - capability_id: ai_training
+    patterns:
+      - mle
+      - 预训练
+      - 微调
+      - rlhf
+      - 分布式训练
+      - deepspeed
+      - fsdp
+
+  - capability_id: academia_research
+    patterns:
+      - 教职
+      - 副教授
+      - 助理教授
+      - 博后
+      - postdoc
+      - 青年学者
+
+  - capability_id: applied_research
+    patterns:
+      - 科研院所
+      - 应用研究
+      - 课题组长
+
+  - capability_id: policy_admin
+    patterns:
+      - 公务员
+      - 选调
+      - 国考
+      - 省考
+      - 综合管理
+
+  - capability_id: sc_optimization
+    patterns:
+      - 数据中心
+      - 云计算
+      - 资源调度
+      - cloud scheduling
+
+employer_hints:
+  - employer_id: central_soe
+    patterns:
+      - 央企
+      - 国企
+      - 中远
+      - 招商局
+      - 国家能源
+
+  - employer_id: private
+    patterns:
+      - 字节
+      - bytedance
+      - 腾讯
+      - 阿里
+      - 百度
+      - 美团
+      - 顺丰
+      - 互联网
+      - 独角兽
+
+  - employer_id: local_soe
+    patterns:
+      - 地方国企
+      - 省属
+
+  - employer_id: public_institution
+    patterns:
+      - 高校
+      - 大学
+      - 研究所
+      - 事业单位
+      - 教职
+
+  - employer_id: civil_service
+    patterns:
+      - 公务员
+      - 部委
+      - 厅局

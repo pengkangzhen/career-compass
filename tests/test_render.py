@@ -10,7 +10,13 @@ def test_render_opportunities(examples_dir: Path):
     assert "综合 A" in out or "综合 {{" not in out
 
 
-def test_render_opportunities_phase2_fields(examples_dir: Path):
+def test_render_opportunities_overview_columns(examples_dir: Path):
+    out = render_opportunities(examples_dir / "opportunities.yaml")
+    assert "价值定位" in out
+    assert "核心工作" in out
+    assert "组织类型" in out
+    assert "市场称呼示例" in out
+    assert "典型岗位" not in out
     out = render_opportunities(examples_dir / "opportunities.yaml")
     assert "系统不替你做选择" in out
     assert "主业" in out

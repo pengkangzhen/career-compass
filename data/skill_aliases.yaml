@@ -1,0 +1,51 @@
+# 技能别名 —— 全用户共享；match / jd-analyze 共用
+# 格式：canonical_key → 别名列表（子串/词界匹配见 match._alias_in_text）
+
+aliases:
+  python: [python, py]
+  pytorch: [pytorch, torch]
+  rag: [rag, 检索增强, retrieval]
+  llm: [llm, 大模型, gpt, langchain]
+  运筹优化: [运筹, optimization, or, mip, gurobi, cplex, or-tools, 规划, 求解器, 启发式, vrp, 排程]
+  机器学习: [机器学习, ml, machine learning]
+  spark: [spark]
+  sql: [sql]
+  分布式训练: [分布式, deepspeed, fsdp]
+  ros: [ros, ros2]
+  计算机视觉: [cv, vision, 视觉]
+  c++: [c++, cpp]
+  分子建模:
+    - 分子建模
+    - 分子模拟
+    - molecular modeling
+    - molecular dynamics
+    - chemoinformatics
+    - 化学信息学
+    - 计算化学
+    - 药物化学
+  生物统计: [生物统计, biostat, sas programmer, 临床试验统计]
+  强化学习: [强化学习, reinforcement learning, rl, q-learning]
+  深度学习: [深度学习, deep learning, neural network]
+  kubernetes: [kubernetes, k8s]
+  因果推断: [因果推断, causal inference, causal]
+
+# JD 解析额外词表（可独立于 aliases 扩展）
+jd_vocab_extra:
+  - Java
+  - Go
+  - Rust
+  - FastAPI
+  - 微服务
+  - 向量数据库
+  - Milvus
+  - Elasticsearch
+  - 微调
+  - 预训练
+  - RLHF
+  - 供应链
+  - 物流
+  - 定价
+  - 风控
+  - 博士
+  - PhD
+  - 顶会

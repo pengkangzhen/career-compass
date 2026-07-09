@@ -12,6 +12,13 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
+from .cross_track import (
+    CrossTrackAssessment,
+    assess_cross_track,
+    cross_track_match_adjustment,
+    merge_saturation_into_assessment,
+    resolve_market_saturation,
+)
 from .eligibility import (
     apply_composite_cap,
     composite_to_hiring_fit,
@@ -35,29 +42,11 @@ from .schema import (
     TaxonomyRoleFamily,
     is_placeholder,
 )
+from .registry import capability_label, load_method_patterns, load_skill_aliases
 
 # Schema 2.3 资格闸门规则文件（match 阶段加载；缺失则放行）
 _ELIGIBILITY_RULES_FILENAME = "hiring_eligibility_rules.yaml"
 
-# 技能别名/子串匹配（中英混排）
-_SKILL_ALIASES: dict[str, tuple[str, ...]] = {
-    "python": ("python", "py"),
-    "pytorch": ("pytorch", "torch"),
-    "rag": ("rag", "检索增强", "retrieval"),
-    "llm": ("llm", "大模型", "gpt", "langchain"),
-    "运筹优化": ("运筹", "optimization", "or", "mip", "gurobi", "规划"),
-    "机器学习": ("机器学习", "ml", "machine learning"),
-    "spark": ("spark",),
-    "sql": ("sql",),
-    "分布式训练": ("分布式", "deepspeed", "fsdp"),
-    "ros": ("ros", "ros2"),
-    "计算机视觉": ("cv", "vision", "视觉"),
-    "c++": ("c++", "cpp"),
-    "分子建模": ("分子", "chem", "化学"),
-    "生物统计": ("生物统计", "biostat", "统计"),
-}
-
-# 竞争信号关键词
 _COMP_HIGH = ("内卷", "过剩", "裁员", "供过于求", "饱和", "竞争激烈", "红海", "降本裁员")
 _COMP_LOW = ("缺口", "人才短缺", "需求增长", "供不应求", "蓝海", "紧缺", "扩招")
 
@@ -66,13 +55,37 @@ def _normalize(text: str) -> str:
     return text.strip().lower()
 
 
+def _alias_in_text(alias: str, text: str) -> bool:
+    """别名匹配：避免短中文子串误伤（如 化学 ⊂ 强化学习）。"""
+    alias = _normalize(alias)
+    text = _normalize(text)
+    if not alias or not text:
+        return False
+    if alias == text:
+        return True
+    if len(alias) <= 2 and re.search(r"[\u4e00-\u9fff]", alias):
+        return bool(re.search(
+            rf"(?:^|[\s/、，,;；（(（【\[「\-+]){re.escape(alias)}(?:$|[\s/、，,;；)）】\]」\-+])",
+            text,
+        ))
+    return alias in text
+
+
+def _skill_alias_map() -> dict[str, tuple[str, ...]]:
+    sa = load_skill_aliases()
+    if sa.aliases:
+        return sa.as_tuple_map()
+    return {}
+
+
 def _skill_tokens(skills: Iterable[str]) -> set[str]:
     out: set[str] = set()
+    aliases = _skill_alias_map()
     for s in skills:
         n = _normalize(s)
         out.add(n)
-        for alias_key, aliases in _SKILL_ALIASES.items():
-            if any(a in n for a in aliases) or n in aliases:
+        for alias_key, alias_list in aliases.items():
+            if any(_alias_in_text(a, n) for a in alias_list) or _alias_in_text(n, alias_key):
                 out.add(alias_key)
     return out
 
@@ -99,21 +112,76 @@ def collect_profile_skills(
     }
 
 
+def _profile_domain_blob(profile: Profile) -> str:
+    parts: list[str] = []
+    parts.extend(profile.skills.core)
+    parts.extend(profile.skills.adjacent)
+    parts.extend(profile.skills.frontier)
+    parts.extend(profile.preferences.energized_by)
+    for ev in profile.strength_evidence:
+        parts.append(ev.claim)
+        parts.append(ev.proof)
+    for ed in profile.education:
+        parts.append(ed.major)
+        if ed.thesis_or_focus:
+            parts.append(ed.thesis_or_focus)
+    return _normalize(" ".join(parts))
+
+
+def _default_industry_graph() -> IndustryGraph | None:
+    """CLI / 单测未显式传入 graph 时，尝试加载 data/industry_graph.yaml。"""
+    path = Path.cwd() / "data" / "industry_graph.yaml"
+    if not path.is_file():
+        return None
+    from .schema import load_industry_graph
+    return load_industry_graph(path)
+
+
+def industry_domain_anchor(
+    profile: Profile,
+    industry_id: str,
+    graph: IndustryGraph | None = None,
+) -> float:
+    """画像与目标行业的语境重合度 0–1。marker 来自 industry_graph；未知行业保守默认。"""
+    if graph is None:
+        graph = _default_industry_graph()
+    blob = _profile_domain_blob(profile)
+    markers: tuple[str, ...] = ()
+    if graph is not None:
+        markers = graph.domain_markers_for(industry_id)
+    if not markers:
+        return load_method_patterns().unknown_domain_anchor
+    hits = sum(1 for m in markers if m.lower() in blob)
+    if hits >= 3:
+        return 1.0
+    if hits >= 1:
+        return 0.75
+    return load_method_patterns().unknown_domain_anchor
+
+
+def _apply_domain_anchor(match_score: float, anchor: float) -> float:
+    if anchor >= 0.75:
+        return match_score
+    return round(match_score * anchor, 3)
+
+
 def _skill_matches(required: str, buckets: dict[str, set[str]]) -> str | None:
     """若匹配返回所在层级 core/adjacent/frontier，否则 None。"""
     req = _normalize(required)
     req_tokens = {req}
-    for alias_key, aliases in _SKILL_ALIASES.items():
-        if any(a in req for a in aliases) or req in aliases:
+    aliases = _skill_alias_map()
+    for alias_key, alias_list in aliases.items():
+        if any(_alias_in_text(a, req) for a in alias_list) or _alias_in_text(req, alias_key):
             req_tokens.add(alias_key)
     for level in ("core", "adjacent", "frontier"):
         if req_tokens & buckets[level]:
             return level
-    # 子串 fallback
-    for level in ("core", "adjacent", "frontier"):
-        for tok in buckets[level]:
-            if req in tok or tok in req:
-                return level
+    # 子串 fallback（较长片段才启用，避免短词误伤）
+    if len(req) >= 4:
+        for level in ("core", "adjacent", "frontier"):
+            for tok in buckets[level]:
+                if req in tok or (len(tok) >= 4 and tok in req):
+                    return level
     return None
 
 
@@ -121,6 +189,7 @@ def score_profile_vs_role(
     profile: Profile,
     projects: ProjectsFile | None,
     role_family: TaxonomyRoleFamily,
+    graph: IndustryGraph | None = None,
 ) -> dict:
     """计算 match_score (0-1) 与 skill_gaps 列表。"""
     buckets = collect_profile_skills(profile, projects)
@@ -173,7 +242,19 @@ def score_profile_vs_role(
             ))
 
     match_score = matched_weights / total_weight if total_weight else 0.0
-    return {"match_score": round(min(1.0, max(0.0, match_score)), 3), "skill_gaps": gaps}
+    raw_score = match_score
+    anchor = industry_domain_anchor(profile, role_family.industry_id, graph)
+    cross = assess_cross_track(
+        profile, role_family, domain_anchor=anchor, raw_match_score=raw_score,
+    )
+    match_score = cross_track_match_adjustment(raw_score, anchor, cross)
+    return {
+        "match_score": round(min(1.0, max(0.0, match_score)), 3),
+        "skill_gaps": gaps,
+        "cross_track": cross,
+        "raw_match_score": raw_score,
+        "domain_anchor": anchor,
+    }
 
 
 def _flatten_signals(signals: dict[str, list[Signal]]) -> list[Signal]:
@@ -328,7 +409,7 @@ def generate_candidate_opportunities(
     candidates: list[tuple[float, Opportunity]] = []
 
     for rf in roles.role_families:
-        scored = score_profile_vs_role(profile, projects, rf)
+        scored = score_profile_vs_role(profile, projects, rf, graph)
         match_score = scored["match_score"]
         if not passes_constraints(rf, constraints, match_score):
             continue
@@ -367,6 +448,8 @@ def generate_candidate_opportunities(
 
         opp = Opportunity(
             direction=rf.role,
+            capability_name=rf.role,
+            summary=node.value_is_in if node else node_name,
             industry=industry_name,
             value_chain_node=node_name,
             role_families=[role_snap],
@@ -404,26 +487,11 @@ def generate_candidate_opportunities(
 
 # ---------- Schema 2.2 正交矩阵（能力 × 雇主性质）----------
 
-_CAPABILITY_LABELS: dict[str, str] = {
-    "sc_optimization": "供应链 / 物流优化",
-    "or_ml_hybrid": "OR+ML 混合工程",
-    "decision_agent_or": "决策智能 Agent（OR × LLM）",
-    "llm_agent_app": "LLM / Agent 应用",
-    "ai_training": "MLE / 模型训练",
-    "academia_research": "高校教职 / 科研",
-    "applied_research": "科研院所应用研究",
-    "policy_admin": "政策 / 综合管理（公务员）",
-}
-
 
 def capability_id_for_role(role_family: TaxonomyRoleFamily) -> str:
     if role_family.capability_id:
         return role_family.capability_id
     return role_family.value_chain_node_id or role_family.id
-
-
-def capability_label(capability_id: str, fallback_role: str = "") -> str:
-    return _CAPABILITY_LABELS.get(capability_id) or fallback_role or capability_id
 
 
 def passes_employer_scope(role_family: TaxonomyRoleFamily, constraints: Constraints) -> bool:
@@ -445,7 +513,10 @@ def _employer_composite_boost(employer_id: str, constraints: Constraints) -> flo
 def _skill_transfer_for_role(
     role_family: TaxonomyRoleFamily,
     match_score: float,
+    cross: CrossTrackAssessment | None = None,
 ) -> tuple[str, str]:
+    if cross and cross.method_transfer:
+        return cross.method_transfer, cross.method_transfer_rationale
     if role_family.skill_transfer_default:
         level = role_family.skill_transfer_default
         return level, f"taxonomy 默认技能迁移度: {level}"
@@ -525,8 +596,25 @@ def _build_matrix_cell(
 
     comp_label = estimate_competition_index(role_family, signals)
     comp_float = competition_label_to_float(comp_label)
+    cross: CrossTrackAssessment = scored.get("cross_track") or CrossTrackAssessment()
+    sat = resolve_market_saturation(
+        role_family,
+        graph,
+        signals,
+        domain_anchor=scored.get("domain_anchor", 0.0),
+        raw_match_score=scored.get("raw_match_score", match_score),
+        industry_name=industry_name,
+    )
+    cross = merge_saturation_into_assessment(cross, sat)
+    opens_up: list[str] = [f"{industry_name} · {node_name} · {employer_id}"]
+
     fit = _level_label(match_score)
     wind, wind_rationale = _wind_from_signals(industry_name, signals)
+    if cross.saturation == "high":
+        wind = "逆风"
+        wind_rationale = cross.saturation_note
+        comp_label = "high"
+        comp_float = competition_label_to_float("high")
     risk = "低" if constraints.reversibility_bias == "high" else "高"
     costs: list[str] = []
     composite = _composite_from_scores(
@@ -537,12 +625,22 @@ def _build_matrix_cell(
 
     if shallow and trap:
         costs.append(f"浅层陷阱: {trap}")
-    if comp_label == "high":
+    if comp_label == "high" and cross.saturation != "high":
         costs.append("竞争密度偏高，需差异化叙事")
     if role_family.hard_gates:
         costs.append(f"硬门槛: {', '.join(role_family.hard_gates[:3])}")
+    if cross.costs:
+        costs.extend(cross.costs)
+    if cross.is_cross_track and cross.opens_up_note:
+        opens_up.append(cross.opens_up_note)
+    if cross.is_cross_track and cross.cross_label:
+        opens_up.append(
+            f"交叉赛道 · {cross.cross_label} · 方法论迁移 {cross.method_transfer}"
+        )
 
-    skill_transfer, st_rationale = _skill_transfer_for_role(role_family, match_score)
+    skill_transfer, st_rationale = _skill_transfer_for_role(
+        role_family, match_score, cross,
+    )
     if skill_transfer == "低" and composite in ("A", "B"):
         composite = _composite_downgrade(composite)
 
@@ -570,6 +668,11 @@ def _build_matrix_cell(
         fit_rationale=(
             f"技能覆盖 {match_score:.0%}；岗位: {role_family.role}；"
             f"价值链: {node.value_is_in if node else '—'}"
+            + (
+                f"；行业背景缺口 {cross.domain_gap}"
+                if cross.is_cross_track and cross.domain_gap
+                else ""
+            )
         ),
         match=fit,
         match_rationale="Ikigai+期权 heuristic：core/adjacent 与岗位 required_skills 对齐度",
@@ -578,7 +681,7 @@ def _build_matrix_cell(
         risk=risk,
         risk_rationale="结合 constraints.reversibility_bias 默认",
         composite=composite,
-        opens_up=[f"{industry_name} · {node_name} · {employer_id}"],
+        opens_up=opens_up,
         costs=costs,
         first_step=(
             f"针对 {role_family.role}（{employer_id}）: "
@@ -647,7 +750,7 @@ def generate_orthogonal_matrix(
             continue
         cap_id = capability_id_for_role(rf)
         emp_id = rf.employer_type_id
-        scored = score_profile_vs_role(profile, projects, rf)
+        scored = score_profile_vs_role(profile, projects, rf, graph)
         match_score = scored["match_score"]
         if not passes_constraints(rf, constraints, match_score):
             continue

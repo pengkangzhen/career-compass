@@ -2,8 +2,8 @@
 
 阶段规则与 SKILL.md 一致：
   intake  → profile/约束/narrative 未通过 validate
-  scan    → 画像齐了，signals 不足
-  analyze → 有信号，尚无 opportunities.yaml
+  scan    → （可选）补充外部市场信号
+  analyze → 画像通过 validate，尚无 opportunities.md（不强制先有信号）
   plan    → 机会矩阵已有，strategy.md 存在（可选深入）
   done    → 机会矩阵已渲染（opportunities.md）
 """
@@ -218,9 +218,7 @@ def detect_stage(data_dir: Path) -> PipelineState:
 
     if errors or profile_gaps:
         state.stage = Stage.intake
-    elif signal_count < MIN_SIGNALS_FOR_ANALYZE:
-        state.stage = Stage.scan
-    elif not has_opps or not has_opps_md:
+    elif not has_opps_md:
         state.stage = Stage.analyze
     elif has_strategy:
         state.stage = Stage.plan
@@ -318,10 +316,17 @@ def run_stage_check(
         return True, messages
 
     if stage == Stage.analyze:
-        if state.signal_count < MIN_SIGNALS_FOR_ANALYZE:
-            messages.append(f"❌ 需要至少 {MIN_SIGNALS_FOR_ANALYZE} 条信号，当前 {state.signal_count}")
+        if state.validation_errors:
+            messages.append("❌ 请先完成 intake（validate 未通过）:")
+            messages.extend(f"  - {e}" for e in state.validation_errors)
             return False, messages
-        messages.append(f"✅ 信号 {state.signal_count} 条")
+        if state.signal_count < MIN_SIGNALS_FOR_ANALYZE:
+            messages.append(
+                f"💡 尚无外部信号（当前 {state.signal_count} 条）；"
+                "可直接 match 生成矩阵，信号用于增强趋势依据"
+            )
+        else:
+            messages.append(f"✅ 信号 {state.signal_count} 条")
         messages.append("💡 运行 brief 获取分析输入: uv run career-compass brief")
         messages.append("💡 可选 match 生成草稿: uv run career-compass match --write-draft")
         messages.append("💡 审阅后写/改 opportunities.yaml，再: uv run career-compass render-opportunities")

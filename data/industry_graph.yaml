@@ -6,6 +6,19 @@ industries:
   - id: ai_llm
     name: "人工智能与大模型"
     why_hot: "应用层爆发 + 基础设施投入持续加大"
+    domain_markers:
+      - llm
+      - agent
+      - 大模型
+      - langgraph
+      - rag
+      - prompt
+      - 智能体
+      - nlp
+      - 自然语言
+      - 多智能体
+      - pytorch
+      - 深度学习
     subsectors:
       - id: llm_infra
         name: "大模型基础设施"
@@ -30,6 +43,8 @@ industries:
             name: "RAG / Agent 应用层"
             value_is_in: "领域知识检索、工具编排、评测与 guardrails、垂直场景落地"
             trap: "只会调 API 做 wrapper，无领域数据与评测壁垒"
+            market_saturation: high
+            saturation_note: "通用 LLM 应用/Agent wrapper 岗位供给过剩、评测与数据壁垒不足者难突围"
           - id: ai_product
             name: "AI 产品 / PM-Tech"
             value_is_in: "需求定义、人机交互、指标闭环、与工程/算法协同"
@@ -38,6 +53,23 @@ industries:
   - id: or_supply_chain
     name: "运筹优化 / 供应链智能化"
     why_hot: "物流降本 + 计划排程数字化 + AI 与 OR 交叉岗位增多"
+    domain_markers:
+      - 物流
+      - 供应链
+      - 运筹
+      - 港航
+      - 航运
+      - 调度
+      - 交通
+      - 规划
+      - 优化
+      - 港口
+      - 班列
+      - 仓储
+      - 集卡
+      - 货代
+      - mip
+      - gurobi
     subsectors:
       - id: supply_chain_planning
         name: "供应链计划与排程"
@@ -46,10 +78,14 @@ industries:
             name: "网络规划 / 库存优化"
             value_is_in: "MIP/随机规划、多 echelon 库存、仿真与 what-if"
             trap: "Excel 排产 + 经验规则，无法规模化求解"
+            market_saturation: high
+            saturation_note: "物流/互联网大厂供应链 OR 岗位供给饱和、HC 收紧、同质化竞争"
           - id: routing_scheduling
             name: "路径 / 排程 / 装箱"
             value_is_in: "VRP、job shop、列生成、启发式 + 精确解混合"
             trap: "只做可视化 dashboard，无优化内核"
+            market_saturation: high
+            saturation_note: "即时配送/仓内路径 OR 岗位内卷，需强差异化叙事"
 
       - id: pricing_revenue
         name: "定价 / 收益管理"
@@ -58,14 +94,27 @@ industries:
             name: "动态定价 / 收益管理"
             value_is_in: "需求预测 + 优化联合、因果推断、A/B 与反事实"
             trap: "纯规则定价或黑盒 ML 无解释与约束"
+            market_saturation: high
+            saturation_note: "互联网定价/收益管理 OR 竞争激烈，博士供给过剩"
           - id: or_ml_hybrid
             name: "OR + ML 混合工程"
             value_is_in: "学习增强优化、预测-优化联合、可部署求解器"
             trap: "论文模型无法工程化或违反业务硬约束"
+            market_saturation: medium
+            saturation_note: "OR+ML 混合岗增长放缓，纯调参/套壳难突围"
 
   - id: robotics
     name: "机器人与高端装备"
     why_hot: "具身智能 + 人形机器人量产窗口；核心零部件壁垒最深"
+    domain_markers:
+      - 机器人
+      - ros
+      - 伺服
+      - 减速器
+      - 运动控制
+      - 具身
+      - 机械
+      - 控制
     subsectors:
       - id: embodied_ai
         name: "具身智能 / 人形机器人"
@@ -94,6 +143,19 @@ industries:
   - id: biopharma
     name: "生物医药与创新药"
     why_hot: "创新药出海 + ADC/CAR-T + AI 制药进入临床验证"
+    domain_markers:
+      - 制药
+      - 医药
+      - 生物
+      - 临床
+      - 药物
+      - 靶点
+      - biotech
+      - cro
+      - 分子生物
+      - adc
+      - 蛋白
+      - 药代
     subsectors:
       - id: drug_discovery
         name: "药物发现"
@@ -122,7 +184,19 @@ industries:
   # 可扩展占位 —— 其余 sectors.yaml 行业待 Phase 2+ 深化
   - id: semicon
     name: "集成电路与半导体"
-    why_hot: "国产替代长期国策"
+    why_hot: "国产替代 + 扩产周期带来制造侧数字化与优化岗位缺口"
+    domain_markers:
+      - 半导体
+      - 芯片
+      - 晶圆
+      - fab
+      - 封测
+      - 制程
+      - 良率
+      - 产能
+      - mes
+      - aps
+      - amhs
     subsectors:
       - id: chip_design
         name: "芯片设计"
@@ -131,3 +205,15 @@ industries:
             name: "RTL / 验证"
             value_is_in: "架构、低功耗、形式验证、流片经验"
             trap: "只会发论文不能 tape-out"
+
+      - id: fab_manufacturing
+        name: "晶圆制造 / 封测"
+        value_chain_nodes:
+          - id: fab_scheduling
+            name: "晶圆厂排程 / 厂内物流"
+            value_is_in: "APS/batch scheduling、AMHS 路径优化、WIP 仿真、MIP+启发式混合求解"
+            trap: "只做报表看板、无优化内核与工艺约束建模"
+          - id: yield_optimization
+            name: "良率 / 产能优化"
+            value_is_in: "实验设计、统计过程控制、约束规划、缺陷根因与产能爬坡"
+            trap: "纯黑盒 ML 无工艺可解释性与约束"

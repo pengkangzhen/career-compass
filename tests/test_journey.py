@@ -52,6 +52,23 @@ def test_core_complete_rest_at_track(examples_dir: Path, tmp_path: Path):
     assert all(s["done"] for s in status.steps[:3])
 
 
+def test_decide_without_explore_or_saved_jobs(examples_dir: Path, tmp_path: Path):
+    """画像通过后可直接进入做出决策，无需信号或岗位收藏。"""
+    import shutil
+
+    for name in ("profile.yaml", "constraints.yaml", "narrative.md"):
+        shutil.copy(examples_dir / name, tmp_path / name)
+
+    progress = assess_journey_progress(tmp_path)
+    assert progress.know_self_done
+    assert not progress.explore_done
+    assert current_journey_step(progress) == JourneyStep.decide
+
+    status = build_journey_status(tmp_path)
+    assert status.current == JourneyStep.decide
+    assert status.engine_stage == "analyze"
+
+
 def test_current_step_progression(tmp_path: Path):
     progress = assess_journey_progress(tmp_path)
     assert current_journey_step(progress) == JourneyStep.know_self

@@ -45,17 +45,17 @@ def test_profile_gaps_detects_placeholder_strength():
     assert any("strength_evidence" in g for g in gaps)
 
 
-def test_validate_constraints_warns_empty_geo():
+def test_validate_constraints_warns_empty_runway():
     from career_compass.schema import Constraints
 
     result = validate_constraints(Constraints())
-    assert any("geo" in w.message for w in result.warnings)
+    assert any("financial_runway" in w.field for w in result.warnings)
 
 
 def test_validate_constraints_ok(examples_dir: Path):
     c = load_constraints(examples_dir / "constraints.yaml")
     result = validate_constraints(c)
-    assert not any("geo" in w.message and "空" in w.message for w in result.warnings)
+    assert not any("financial_runway_months=0" in w.message for w in result.warnings)
 
 
 def test_validate_narrative_sections(examples_dir: Path):

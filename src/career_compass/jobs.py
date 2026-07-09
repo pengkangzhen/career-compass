@@ -11,10 +11,12 @@ from datetime import date
 from pathlib import Path
 
 from .jd_analyze import analyze_jd_text
+from .jd_link import load_matrix_for_linking, resolve_linked_direction
 from .schema import (
     Constraints,
     EducationLevel,
     EducationStatus,
+    OpportunityMatrix,
     Profile,
     ProjectsFile,
     SavedJob,
@@ -143,7 +145,7 @@ def _detect_barriers(
                 barriers.append(label)
 
     if re.search(r"CCF-A|顶会.*一作", description, re.I):
-        barriers.append("当前：无 CCF-A 一作（EAAI 在投，非已发表顶会）")
+        barriers.append("当前：无 CCF-A 一作（仅有在投论文时可能不满足「已发表」要求）")
 
     if re.search(r"博士学位|具有博士", description, re.I):
         phd = profile.education_for(EducationLevel.phd)
@@ -170,8 +172,13 @@ def analyze_saved_job(
     profile: Profile,
     projects: ProjectsFile | None = None,
     constraints: Constraints | None = None,
+    *,
+    matrix: OpportunityMatrix | None = None,
+    data_dir: Path | None = None,
 ) -> JobFitReport:
     """JD vs 画像：覆盖率、缺口、硬门槛、关联机会矩阵方向。"""
+    if matrix is None and data_dir is not None:
+        matrix = load_matrix_for_linking(data_dir)
     jd = analyze_jd_text(
         job.description,
         profile,
@@ -188,13 +195,8 @@ def analyze_saved_job(
 
     linked = job.linked_direction
     if not linked:
-        blob = f"{job.company} {job.role} {job.description[:500]}"
-        if re.search(r"Agent|LangGraph|LLM|AI for OR|大模型", blob, re.I):
-            linked = "AI4OR 研究员（LLM × 优化交叉，研究侧）"
-        elif re.search(r"供应链|物流|调度|VRP|TSP|排产", blob, re.I):
-            linked = "供应链决策 AI（顺丰式 agent × 物流，行业落地）或 OR × 热门赛道"
-        elif re.search(r"数据中心|云计算|资源调度", blob, re.I):
-            linked = "OR × 热门赛道（机器人/商业航天/新能源的运筹调度）"
+        blob = f"{job.company} {job.role} {job.description[:800]}"
+        linked = resolve_linked_direction(blob, matrix=matrix, data_dir=data_dir)
 
     gap_names = [g.skill for g in jd.skill_gaps[:8]]
     summary_parts = [

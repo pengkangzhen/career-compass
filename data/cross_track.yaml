@@ -1,0 +1,40 @@
+# 交叉赛道注册表 —— 全用户共享的产业知识，非个人定制
+# match 阶段：方法论画像 × 岗位族 × 行业语境 触发
+# method_pattern 为空则任意画像；or / llm 等限制方法论类型
+
+opportunities:
+  - industry_id: semicon
+    value_chain_node_id: fab_scheduling
+    potential: emerging
+    label: "半导体制造排程 / 厂内物流 OR"
+    method_pattern: or
+    method_note: "晶圆厂 APS、batch scheduling、厂内 AMHS 路径优化 —— MIP/启发式方法论直接复用"
+    domain_gap_note: "需补半导体工艺/良率/产能约束语境（6–12 个月可建立）"
+    opens_up: "制造侧 OR 需求随国产扩产上升，竞争低于互联网物流 OR"
+
+  - industry_id: semicon
+    value_chain_node_id: yield_optimization
+    potential: emerging
+    label: "半导体良率 / 产能优化"
+    method_pattern: or
+    method_note: "统计+优化联合、实验设计、约束规划 —— 与 OR+ML 画像契合"
+    domain_gap_note: "需理解制程参数、缺陷模式与 fab 数据体系"
+    opens_up: "芯片厂数字化团队扩招，OR 背景稀缺于纯 ML 简历"
+
+  - industry_id: robotics
+    value_chain_node_id: whole_body_control
+    potential: adjacent
+    label: "机器人运动规划 / MPC"
+    method_pattern: or
+    method_note: "路径/轨迹优化、实时排程与 OR 方法论相邻"
+    domain_gap_note: "需补控制理论、ROS 与硬件在环经验"
+    opens_up: "具身智能量产窗口，规划岗混合 OR+控制背景"
+
+  - industry_id: ai_llm
+    value_chain_node_id: rag_agent
+    potential: adjacent
+    label: "垂直行业 Agent / RAG"
+    method_pattern: llm
+    method_note: "领域知识检索、工具编排 —— LLM 工程能力可迁移"
+    domain_gap_note: "需补垂直行业数据、评测体系与 guardrails"
+    opens_up: "从通用大模型应用转向有数据壁垒的垂直场景"

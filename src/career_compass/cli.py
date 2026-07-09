@@ -246,11 +246,62 @@ def cmd_scan_projects(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_opportunities_matrix() -> tuple[OpportunityMatrix | None, str | None]:
+    """运行正交匹配引擎。返回 (matrix, error_message)。"""
+    if not PROFILE.exists():
+        return None, f"缺少 {PROFILE}"
+    if not INDUSTRY_GRAPH.exists() or not ROLE_TAXONOMY.exists():
+        return None, "缺少 industry_graph.yaml 或 role_taxonomy.yaml"
+    if not EMPLOYER_TYPES.exists():
+        return None, f"缺少 {EMPLOYER_TYPES}（Schema 2.2 雇主性质轴）"
+
+    profile = load_profile(PROFILE)
+    constraints = load_constraints(CONSTRAINTS) if CONSTRAINTS.exists() else Constraints()
+    graph = load_industry_graph(INDUSTRY_GRAPH)
+    roles = load_role_taxonomy(ROLE_TAXONOMY)
+    employer_types = load_employer_types(EMPLOYER_TYPES)
+    signals = load_signals(SIGNALS)
+    projects = load_projects(PROJECTS) if PROJECTS.exists() else None
+
+    matrix = generate_orthogonal_matrix(
+        profile,
+        constraints,
+        graph,
+        roles,
+        employer_types,
+        signals,
+        projects,
+        eligibility_rules_path=DATA / "hiring_eligibility_rules.yaml",
+    )
+    return matrix, None
+
+
+def _ensure_opportunities_yaml() -> tuple[Path | None, str | None]:
+    """确保 opportunities.yaml 存在；必要时从 draft 提升或自动 match。"""
+    if OPPORTUNITIES_YAML.exists():
+        return OPPORTUNITIES_YAML, None
+    if OPPORTUNITIES_DRAFT.exists():
+        OPPORTUNITIES_YAML.write_text(
+            OPPORTUNITIES_DRAFT.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        print(f"✅ 使用草稿 {OPPORTUNITIES_DRAFT.name} → {OPPORTUNITIES_YAML.name}")
+        return OPPORTUNITIES_YAML, None
+
+    print("尚无 opportunities.yaml，正在运行 match 生成…")
+    matrix, err = _build_opportunities_matrix()
+    if err:
+        return None, err
+    save_opportunities(OPPORTUNITIES_YAML, matrix)
+    print(f"✅ 已写入 {OPPORTUNITIES_YAML}")
+    return OPPORTUNITIES_YAML, None
+
+
 def cmd_render_opportunities(_args: argparse.Namespace) -> int:
-    if not OPPORTUNITIES_YAML.exists():
-        print(f"❌ 找不到 {OPPORTUNITIES_YAML}。先跑 playbook 3-analyze 生成机会矩阵数据。")
+    yaml_path, err = _ensure_opportunities_yaml()
+    if err or yaml_path is None:
+        print(f"❌ {err or '无法生成 opportunities.yaml'}")
         return 1
-    out = render_opportunities(OPPORTUNITIES_YAML)
+    out = render_opportunities(yaml_path)
     OPPORTUNITIES_MD.write_text(out, encoding="utf-8")
     print(f"✅ 渲染机会矩阵到 {OPPORTUNITIES_MD}")
     return 0
@@ -299,10 +350,10 @@ def cmd_match(args: argparse.Namespace) -> int:
             print(f"\n✅ 草稿已写入 {OPPORTUNITIES_DRAFT}")
         return 0
 
-    matrix = generate_orthogonal_matrix(
-        profile, constraints, graph, roles, employer_types, signals, projects,
-        eligibility_rules_path=DATA / "hiring_eligibility_rules.yaml",
-    )
+    matrix, err = _build_opportunities_matrix()
+    if err or matrix is None:
+        print(f"❌ {err}")
+        return 1
     print(
         f"正交矩阵：{len(matrix.capability_axes)} 能力轴 × "
         f"{len(matrix.employer_axes)} 雇主轴 → {len(matrix.cross_matrix)} 单元\n"
@@ -549,7 +600,7 @@ def cmd_job(args: argparse.Namespace) -> int:
             profile = load_profile(PROFILE)
             projects = load_projects(PROJECTS) if PROJECTS.exists() else None
             constraints = load_constraints(CONSTRAINTS) if CONSTRAINTS.exists() else None
-            _print_job_fit(analyze_saved_job(job, profile, projects, constraints))
+            _print_job_fit(analyze_saved_job(job, profile, projects, constraints, data_dir=DATA))
         return 0
 
     if sub == "list":
@@ -596,7 +647,7 @@ def cmd_job(args: argparse.Namespace) -> int:
             print("(尚无收藏岗位)")
             return 0
         for j in jobs:
-            _print_job_fit(analyze_saved_job(j, profile, projects, constraints))
+            _print_job_fit(analyze_saved_job(j, profile, projects, constraints, data_dir=DATA))
         return 0
 
     if sub == "remove":
@@ -611,6 +662,9 @@ def cmd_job(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    from career_compass.env import ensure_llm_env_defaults
+
+    ensure_llm_env_defaults()
     parser = argparse.ArgumentParser(prog="career-compass", description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
 

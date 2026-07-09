@@ -13,6 +13,8 @@ import yaml
 from career_compass.gui.chat_ui import CHAT_EXTRA_SCRIPT, CHAT_EXTRA_STYLES, CHAT_PANEL_HTML
 from career_compass.gui.md import content_page, render_markdown
 from career_compass.gui.platform import webview_gui
+from career_compass.gui.static_files import spa_available
+from career_compass.gui.view_data import build_all_views
 from career_compass.intake import IntakeEngine, get_llm_config
 from career_compass.intake.preview import build_intake_status
 from career_compass.journey import build_journey_status
@@ -266,7 +268,7 @@ def _load_jobs_html(data_dir: Path) -> str:
         if job.notes:
             parts.append(f"<p><em>{_esc(job.notes)}</em></p>")
         if profile:
-            report = analyze_saved_job(job, profile, projects, constraints)
+            report = analyze_saved_job(job, profile, projects, constraints, data_dir=data_dir)
             parts.append(f"<p><strong>匹配摘要:</strong> {_esc(report.summary)}</p>")
             if report.linked_direction:
                 parts.append(f"<p>关联方向: {_esc(report.linked_direction)}</p>")
@@ -595,20 +597,27 @@ class AppApi:
     def load_all(self) -> dict:
         status = build_intake_status(self.data_dir)
         journey = build_journey_status(self.data_dir)
-        return {
+        views = build_all_views(self.data_dir)
+        payload: dict = {
             "data_dir": str(self.data_dir),
             "intake_complete": status["intake_complete"],
             "journey": journey.to_dict(),
-            "profile_html": _load_profile_html(self.data_dir),
-            "trends_html": _load_trends_html(self.data_dir),
-            "jobs_html": _load_jobs_html(self.data_dir),
-            "matrix_html": _load_matrix_html(self.data_dir),
+            "views": views,
+            "spa": spa_available(),
         }
+        # Legacy inline-HTML UI fallback
+        payload["profile_html"] = _load_profile_html(self.data_dir)
+        payload["trends_html"] = _load_trends_html(self.data_dir)
+        payload["jobs_html"] = _load_jobs_html(self.data_dir)
+        payload["matrix_html"] = _load_matrix_html(self.data_dir)
+        return payload
 
     def run_command(self, cmd: str) -> dict:
         mapping = {
             "validate": ["validate"],
             "render-opportunities": ["render-opportunities"],
+            "render-execution": ["render-execution"],
+            "replan": ["replan", "--write"],
             "job-analyze": ["job", "analyze"],
             "refresh": [],
         }
@@ -619,54 +628,70 @@ class AppApi:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from career_compass.env import ensure_llm_env_defaults
+
+    ensure_llm_env_defaults()
     args = list(argv if argv is not None else sys.argv[1:])
     api = AppApi()
 
-    if "--web" in args:
-        port = 8765
-        if "--port" in args:
-            idx = args.index("--port")
-            if idx + 1 < len(args):
-                port = int(args[idx + 1])
-        from .web_server import run_web_server
+    legacy = "--legacy" in args
+    desktop = "--desktop" in args
+    no_browser = "--no-browser" in args
 
-        run_web_server(api, html=HTML_SHELL, port=port)
+    port = 8765
+    if "--port" in args:
+        idx = args.index("--port")
+        if idx + 1 < len(args):
+            port = int(args[idx + 1])
+
+    from .web_server import run_web_server, start_web_server_background
+
+    if legacy:
+        run_web_server(api, legacy_html=HTML_SHELL, port=port, open_browser=not no_browser)
         return
 
-    try:
-        import webview as _webview
-    except ImportError:
-        print("未安装 pywebview，改用 Web 模式: career-compass-app --web")
-        from .web_server import run_web_server
+    if desktop:
+        server, url = start_web_server_background(api, legacy_html=HTML_SHELL, port=port)
+        try:
+            import webview as _webview
+        except ImportError:
+            server.shutdown()
+            print("未安装 pywebview，改用浏览器模式:")
+            print(f"  uv run career-compass-app --port {port}")
+            raise SystemExit(1) from None
 
-        run_web_server(api, html=HTML_SHELL)
+        print(f"北斗星桌面版: {url}")
+        _webview.create_window(
+            WINDOW_TITLE,
+            url=url,
+            width=WINDOW_WIDTH,
+            height=WINDOW_HEIGHT,
+            min_size=(820, 580),
+            text_select=True,
+        )
+        icon = _app_icon_path()
+        gui = webview_gui()
+        kwargs: dict = {"icon": icon} if icon else {}
+        try:
+            if gui:
+                _webview.start(gui=gui, **kwargs)
+            else:
+                _webview.start(**kwargs)
+        except Exception as e:
+            msg = str(e)
+            if "QT or GTK" in msg or "WebViewException" in type(e).__name__:
+                print("桌面窗口不可用，请在浏览器打开:")
+                print(f"  {url}")
+                raise SystemExit(1) from e
+            raise
+        finally:
+            server.shutdown()
         return
 
-    _webview.create_window(
-        WINDOW_TITLE,
-        html=HTML_SHELL,
-        js_api=api,
-        width=WINDOW_WIDTH,
-        height=WINDOW_HEIGHT,
-        min_size=(820, 580),
-        text_select=True,
-    )
-    icon = _app_icon_path()
-    gui = webview_gui()
-    kwargs: dict = {"icon": icon} if icon else {}
-    try:
-        if gui:
-            _webview.start(gui=gui, **kwargs)
-        else:
-            _webview.start(**kwargs)
-    except Exception as e:
-        msg = str(e)
-        if "QT or GTK" in msg or "WebViewException" in type(e).__name__:
-            print("桌面 GUI 不可用（WSL 常见），已提示 Web 模式:")
-            print("  uv run career-compass-app --web")
-            print(f"  原因: {msg}")
-            raise SystemExit(1) from e
-        raise
+    if not spa_available():
+        print("提示: 未检测到前端构建产物，将使用旧版 UI。")
+        print("  构建现代化界面: ./scripts/build-frontend.sh")
+    run_web_server(api, legacy_html=HTML_SHELL, port=port, open_browser=not no_browser)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
+from career_compass.env import DEFAULT_CLOUDBASE_BASE_URL, DEFAULT_LLM_MODEL, ensure_llm_env_defaults
+
 
 class LLMError(Exception):
     """LLM 调用或配置错误。"""
@@ -27,19 +29,21 @@ def _env(*names: str) -> str:
 
 
 def _cloudbase_credentials() -> tuple[str, str]:
+    ensure_llm_env_defaults()
     api_key = _env("CC_CLOUDBASE_API_KEY", "CLOUDBASE_API_KEY")
-    base_url = _env("CC_CLOUDBASE_BASE_URL", "CLOUDBASE_BASE_URL")
+    base_url = _env("CC_CLOUDBASE_BASE_URL", "CLOUDBASE_BASE_URL") or DEFAULT_CLOUDBASE_BASE_URL
     return api_key, base_url
 
 
 def get_llm_config() -> LLMConfig:
     """返回当前 LLM 配置（不发起网络请求）。"""
+    ensure_llm_env_defaults()
     provider = _env("CC_LLM_PROVIDER").lower()
     model = _env("CC_LLM_MODEL")
     cloudbase_key, cloudbase_base = _cloudbase_credentials()
 
     if provider == "cloudbase":
-        model = model or "hy3-preview"
+        model = model or DEFAULT_LLM_MODEL
         return LLMConfig(
             provider="cloudbase",
             model=model,
@@ -54,7 +58,7 @@ def get_llm_config() -> LLMConfig:
         return LLMConfig(provider="openai", model=model, configured=bool(_env("OPENAI_API_KEY")))
 
     if cloudbase_key and cloudbase_base:
-        model = model or "hy3-preview"
+        model = model or DEFAULT_LLM_MODEL
         return LLMConfig(
             provider="cloudbase",
             model=model,
@@ -68,7 +72,7 @@ def get_llm_config() -> LLMConfig:
         model = model or "gpt-4o"
         return LLMConfig(provider="openai", model=model, configured=True)
 
-    model = model or "hy3-preview"
+    model = model or DEFAULT_LLM_MODEL
     return LLMConfig(provider="cloudbase", model=model, configured=False)
 
 

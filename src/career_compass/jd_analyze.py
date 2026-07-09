@@ -6,25 +6,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .registry import jd_skill_vocab
 from .match import skill_match_level
 from .schema import Profile, ProjectsFile, SkillGap
-
-# 常见 JD 技能词（中英）
-_JD_SKILL_VOCAB: tuple[str, ...] = (
-    "Python", "Java", "C++", "Go", "Rust",
-    "PyTorch", "TensorFlow", "JAX", "深度学习", "机器学习",
-    "LLM", "RAG", "LangChain", "LangGraph", "Agent", "多智能体",
-    "运筹优化", "优化", "Gurobi", "CPLEX", "MIP", "调度",
-    "Spark", "SQL", "Hive", "Flink",
-    "Kubernetes", "Docker", "分布式", "CUDA",
-    "FastAPI", "微服务", "后端",
-    "NLP", "CV", "计算机视觉",
-    "强化学习", "RLHF", "微调", "预训练",
-    "向量数据库", "Milvus", "Elasticsearch",
-    "供应链", "物流", "定价", "风控",
-    "论文", "顶会", "PhD", "博士",
-    "沟通", "协作", "项目管理",
-)
 
 # 过滤噪声词
 _JD_NOISE = re.compile(
@@ -46,7 +30,7 @@ def _extract_skills_from_text(text: str) -> Counter:
     """从 JD 文本提取技能词频。"""
     counts: Counter = Counter()
     lower = text.lower()
-    for skill in _JD_SKILL_VOCAB:
+    for skill in jd_skill_vocab():
         # 整词或子串命中
         pattern = re.escape(skill.lower())
         hits = len(re.findall(pattern, lower, re.I))

@@ -1,0 +1,15 @@
+# 能力轴 / capability_id 展示名 —— 正交矩阵合成 direction 时使用
+# 新增 capability 只需改此文件，无需改 Python
+
+capabilities:
+  sc_optimization: "供应链 / 物流优化"
+  or_ml_hybrid: "OR+ML 混合工程"
+  decision_agent_or: "决策智能 Agent（OR × LLM）"
+  llm_agent_app: "LLM / Agent 应用"
+  ai_training: "MLE / 模型训练"
+  academia_research: "高校教职 / 科研"
+  applied_research: "科研院所应用研究"
+  policy_admin: "政策 / 综合管理（公务员）"
+  semi_fab_or: "半导体制造排程 / 厂内物流 OR"
+  semi_yield_or: "半导体良率 / 产能优化"
+  dynamic_pricing: "定价 / 收益管理科学家"
