@@ -58,6 +58,17 @@ def test_validate_constraints_ok(examples_dir: Path):
     assert not any("financial_runway_months=0" in w.message for w in result.warnings)
 
 
+def test_constraints_accepts_null_runway(tmp_path: Path):
+    """Intake 对话未收集到 runway 时会写 null —— 不应导致结构校验失败。"""
+    from career_compass.schema import Constraints
+
+    c = Constraints.model_validate({"financial_runway_months": None})
+    assert c.financial_runway_months == 0
+    # 同时确认 warnings 走"未填"分支，而不是抛 ValidationError
+    result = validate_constraints(c)
+    assert any("financial_runway_months=0" in w.message for w in result.warnings)
+
+
 def test_validate_narrative_sections(examples_dir: Path):
     text = (examples_dir / "narrative.md").read_text(encoding="utf-8")
     result = validate_narrative(text)

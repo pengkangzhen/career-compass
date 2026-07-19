@@ -403,6 +403,14 @@ class Constraints(BaseModel):
     employer_preference: EmployerPreference = Field(default_factory=EmployerPreference)
     public_sector_gates: PublicSectorGates = Field(default_factory=PublicSectorGates)
 
+    @field_validator("financial_runway_months", mode="before")
+    @classmethod
+    def _coerce_null_runway(cls, v: object) -> object:
+        # intake 对话未收集到 runway 时会写 null —— 视作"未填"，等价于默认 0（validate_constraints 会警告）
+        if v is None:
+            return 0
+        return v
+
     def allowed_employer_ids(self) -> set[str]:
         """strong_preference=True 时仅保留 include\\exclude；否则展示全部默认轴（除 exclude）。"""
         exclude = set(self.employer_preference.exclude or [])

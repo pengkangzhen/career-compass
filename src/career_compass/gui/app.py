@@ -64,21 +64,73 @@ def _app_icon_path() -> str | None:
 _REPO_ROOT = _find_repo_root()
 
 
+_CLI_PATH_ATTRS = (
+    "DATA",
+    "PROFILE",
+    "CONSTRAINTS",
+    "NARRATIVE",
+    "SIGNALS",
+    "SECTORS",
+    "PROJECTS",
+    "OPPORTUNITIES_YAML",
+    "OPPORTUNITIES_DRAFT",
+    "OPPORTUNITIES_MD",
+    "JOB_PACK",
+    "EXECUTION_PACK",
+    "APPLICATIONS",
+    "SAVED_JOBS",
+    "OPPORTUNITIES_REVISED",
+    "INDUSTRY_GRAPH",
+    "ROLE_TAXONOMY",
+    "EMPLOYER_TYPES",
+    "STRATEGY",
+)
+
+_CLI_DERIVED_PATHS = {
+    "PROFILE": "profile.yaml",
+    "CONSTRAINTS": "constraints.yaml",
+    "NARRATIVE": "narrative.md",
+    "SIGNALS": "signals",
+    "SECTORS": "sectors.yaml",
+    "PROJECTS": "projects.yaml",
+    "OPPORTUNITIES_YAML": "opportunities.yaml",
+    "OPPORTUNITIES_DRAFT": "opportunities.draft.yaml",
+    "OPPORTUNITIES_MD": "opportunities.md",
+    "JOB_PACK": "job_pack.md",
+    "EXECUTION_PACK": "execution_pack.md",
+    "APPLICATIONS": "applications.yaml",
+    "SAVED_JOBS": "saved_jobs.yaml",
+    "OPPORTUNITIES_REVISED": "opportunities.revised.yaml",
+    "INDUSTRY_GRAPH": "industry_graph.yaml",
+    "ROLE_TAXONOMY": "role_taxonomy.yaml",
+    "EMPLOYER_TYPES": "employer_types.yaml",
+    "STRATEGY": "strategy.md",
+}
+
+
 def _run_cli(args: list[str], data_dir: Path) -> dict:
+    import career_compass.cli as cli_module
+
     env_old = os.environ.get("CC_DATA")
     argv_old = sys.argv[:]
     os.environ["CC_DATA"] = str(data_dir)
-    buf = StringIO()
+    saved_attrs = {name: getattr(cli_module, name) for name in _CLI_PATH_ATTRS}
     try:
+        cli_module.DATA = data_dir
+        for attr, filename in _CLI_DERIVED_PATHS.items():
+            setattr(cli_module, attr, data_dir / filename)
         sys.argv = ["career-compass", *args]
-        with redirect_stdout(buf), redirect_stderr(buf):
-            from career_compass.cli import main
-            code = main()
-        return {"ok": code == 0, "code": code, "output": buf.getvalue().strip()}
-    except SystemExit as e:
-        code = int(e.code) if isinstance(e.code, int) else 1
-        return {"ok": code == 0, "code": code, "output": buf.getvalue().strip()}
+        buf = StringIO()
+        try:
+            with redirect_stdout(buf), redirect_stderr(buf):
+                code = cli_module.main()
+            return {"ok": code == 0, "code": code, "output": buf.getvalue().strip()}
+        except SystemExit as e:
+            code = int(e.code) if isinstance(e.code, int) else 1
+            return {"ok": code == 0, "code": code, "output": buf.getvalue().strip()}
     finally:
+        for name, value in saved_attrs.items():
+            setattr(cli_module, name, value)
         sys.argv = argv_old
         if env_old is None:
             os.environ.pop("CC_DATA", None)

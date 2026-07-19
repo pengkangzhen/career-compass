@@ -76,14 +76,40 @@ log = logging.getLogger(__name__)
 
 
 # Files the repository round-trips between DB and tmpdir.
-# Anything else in the tmpdir (signals/, sectors.yaml, shared knowledge) is
-# read-only and sourced from the repo's `data/` or `templates/` directories.
 _PROFILE_FILES = ("profile.yaml", "constraints.yaml", "narrative.md")
 _MATRIX_FILES = ("opportunities.yaml", "opportunities.md")
 _FEEDBACK_FILE = "matrix_feedback.yaml"
 _JOBS_FILE = "saved_jobs.yaml"
 _PROJECTS_FILE = "projects.yaml"
 _SESSION_FILE = "intake_session.json"
+
+# Shared, read-only knowledge files (industry structure / taxonomies / rule
+# packs) shipped in the repo's data/ dir. The Repository copies these into
+# every per-request tmpdir so view builders and the legacy CLI see the same
+# shape they had under the old single-user data/ layout. Never user-mutable,
+# so they are excluded from the import-back diff (mtime will not change).
+_SHARED_READ_ONLY_FILES = (
+    "sectors.yaml",
+    "industry_graph.yaml",
+    "role_taxonomy.yaml",
+    "role_taxonomy_public.yaml",
+    "employer_types.yaml",
+    "hiring_eligibility_rules.yaml",
+    "jd_link_rules.yaml",
+    "capability_registry.yaml",
+    "method_patterns.yaml",
+    "skill_aliases.yaml",
+    "cross_track.yaml",
+)
+
+
+def _repo_data_dir() -> Path:
+    """Resolve the repo's bundled data/ dir (CC_DATA fallback for shared files)."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").exists() and (parent / "data" / "sectors.yaml").exists():
+            return parent / "data"
+    return Path.cwd() / "data"
 
 
 class Repository:
@@ -125,6 +151,20 @@ class Repository:
     async def _export_into(self, target: Path) -> None:
         """Write the user's DB state into target/ as YAML/MD files."""
         target.mkdir(parents=True, exist_ok=True)
+
+        # Seed the tmpdir with repo-wide read-only knowledge files
+        # (sectors.yaml, industry_graph.yaml, taxonomies, rule packs) so view
+        # builders and the legacy CLI have the same data shape they had under
+        # the old single-user data/ layout. These are never user-mutable.
+        repo_data = _repo_data_dir()
+        for name in _SHARED_READ_ONLY_FILES:
+            src = repo_data / name
+            if src.is_file():
+                shutil.copy2(src, target / name)
+
+        # Ensure signals/ exists so build_trends_view / load_signals don't fail
+        # when the user has not scanned any market signals yet.
+        (target / "signals").mkdir(exist_ok=True)
 
         # profile.yaml
         p_row = await self.session.get(Profile, self.user_id)
