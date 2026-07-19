@@ -278,7 +278,7 @@ export type HealthResponse = {
 };
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetchWithAuth(path, {
+  const res = await fetchWithAuth(apiUrl(path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : "{}",
@@ -297,6 +297,16 @@ export class ApiError extends Error {
     this.code = code;
     this.detail = detail;
   }
+}
+
+// API base URL — empty in dev (Vite proxy forwards /api/* to localhost:8000),
+// set to the Render backend URL in prod (e.g. https://beidou-api.onrender.com).
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
+
+function apiUrl(path: string): string {
+  // path always starts with "/api/..."
+  if (API_BASE) return API_BASE + path;
+  return path;
 }
 
 async function readErrorPayload(res: Response): Promise<{
@@ -322,7 +332,7 @@ async function readErrorPayload(res: Response): Promise<{
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetchWithAuth(path);
+  const res = await fetchWithAuth(apiUrl(path));
   if (!res.ok) {
     const info = await readErrorPayload(res);
     throw new ApiError(
@@ -342,7 +352,7 @@ async function authPost<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (tokens?.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`;
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     method: "POST",
     headers,
     body: body ? JSON.stringify(body) : "{}",
@@ -365,7 +375,7 @@ async function authGet<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (tokens?.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`;
-  const res = await fetch(path, { headers });
+  const res = await fetch(apiUrl(path), { headers });
   if (!res.ok) {
     const info = await readErrorPayload(res);
     throw new ApiError(

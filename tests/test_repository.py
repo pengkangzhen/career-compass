@@ -1,0 +1,210 @@
+"""Unit tests for the DB-backed Repository (M3).
+
+Verifies CRUD round-trips through the tmpdir strategy, user isolation,
+and that the public method names match what routers/data.py expects.
+"""
+from __future__ import annotations
+
+import uuid
+
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
+
+from career_compass.web.models import Base, User
+from career_compass.web.repository import Repository
+
+
+@pytest_asyncio.fixture
+async def engine():
+    eng = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield eng
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture
+async def session_maker(engine):
+    return async_sessionmaker(engine, expire_on_commit=False)
+
+
+@pytest_asyncio.fixture
+async def make_user(session_maker):
+    """Returns (user_id, repo_factory) for a freshly registered user."""
+    async with session_maker() as s:
+        user_id = uuid.uuid4()
+        s.add(User(id=user_id, email=f"u-{user_id.hex[:6]}@x.com", hashed_password="x"))
+        await s.commit()
+
+    def factory(session) -> Repository:
+        return Repository(session, user_id)
+
+    return user_id, factory
+
+
+@pytest.mark.asyncio
+async def test_load_all_empty_user(session_maker, make_user):
+    """Empty user should get a valid load_all payload (no exceptions)."""
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        data = await repo.load_all()
+    assert "views" in data
+    assert "journey" in data
+    assert data["intake_complete"] is False
+    # Empty user: every view reports empty
+    for view_name, view in data["views"].items():
+        assert view.get("empty") is True, f"{view_name} should be empty for fresh user"
+
+
+@pytest.mark.asyncio
+async def test_jobs_add_and_list(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        res = await repo.jobs_add(
+            company="Acme",
+            role="Engineer",
+            description="Build things",
+        )
+        assert res["ok"] is True
+        job = res["job"]
+        assert job["company"] == "Acme"
+        assert job["status"] == "interested"
+        new_id = job["id"]
+
+    # Verify it round-trips through DB on next load
+    async with session_maker() as s:
+        repo = factory(s)
+        # jobs_add with same (company, role) should upsert
+        res2 = await repo.jobs_add(
+            company="Acme",
+            role="Engineer",
+            description="Updated JD text",
+        )
+        assert res2["ok"] is True
+        assert res2["job"]["id"] == new_id
+        assert res2["job"]["description"] == "Updated JD text"
+
+
+@pytest.mark.asyncio
+async def test_jobs_update(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        add = await repo.jobs_add(company="G", role="R", description="d")
+        job_id = add["job"]["id"]
+        upd = await repo.jobs_update(
+            job_id,
+            status="ready",
+            notes="applied via referral",
+            linked_direction="AI · private",
+        )
+        assert upd["ok"] is True
+        assert upd["job"]["status"] == "ready"
+        assert upd["job"]["notes"] == "applied via referral"
+        assert upd["job"]["linked_direction"] == "AI · private"
+
+
+@pytest.mark.asyncio
+async def test_jobs_remove(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        add = await repo.jobs_add(company="X", role="Y", description="d")
+        job_id = add["job"]["id"]
+        rm = await repo.jobs_remove(job_id)
+        assert rm["ok"] is True
+        # Removing again should fail gracefully
+        rm2 = await repo.jobs_remove(job_id)
+        assert rm2["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_matrix_feedback_lifecycle(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        # Add a remove action
+        r1 = await repo.matrix_feedback_add(action="remove", direction="AI · private")
+        assert r1["ok"] is True
+        r2 = await repo.matrix_feedback_add(
+            action="note", direction="AI · private", details={"text": "looks promising"}
+        )
+        assert r2["ok"] is True
+        r3 = await repo.matrix_feedback_add(action="reset")
+        assert r3["ok"] is True
+
+        list_res = await repo.matrix_feedback()
+        actions = list_res["actions"]
+        # After reset, only the reset marker remains
+        assert len(actions) == 1
+        assert actions[0]["action"] == "reset"
+
+
+@pytest.mark.asyncio
+async def test_user_isolation(session_maker, make_user):
+    """User A's saved jobs must not be visible to User B."""
+    user_a, _ = make_user
+
+    # Make a second user
+    user_b = uuid.uuid4()
+    async with session_maker() as s:
+        s.add(User(id=user_b, email="b@x.com", hashed_password="x"))
+        await s.commit()
+
+    # A adds a job
+    async with session_maker() as s:
+        repo_a = Repository(s, user_a)
+        await repo_a.jobs_add(company="Acorp", role="R1", description="a-job")
+
+    # B should see zero jobs
+    async with session_maker() as s:
+        repo_b = Repository(s, user_b)
+        data_b = await repo_b.load_all()
+        assert data_b["views"]["jobs"]["empty"] is True
+
+    # B's attempt to update A's job should fail with "not found"
+    async with session_maker() as s:
+        repo_a = Repository(s, user_a)
+        a_jobs = (await repo_a.load_all())["views"]["jobs"]
+        # a_jobs is non-empty
+        assert a_jobs.get("empty") is False
+        a_job_id = a_jobs["jobs"][0]["id"]
+
+    async with session_maker() as s:
+        repo_b = Repository(s, user_b)
+        res = await repo_b.jobs_update(a_job_id, notes="attempted takeover")
+        assert res["ok"] is False
+        assert "not found" in res["error"]
+
+
+@pytest.mark.asyncio
+async def test_jobs_add_validates_required_fields(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        # Empty company should fail
+        res = await repo.jobs_add(company="", role="R", description="d")
+        assert res["ok"] is False
+        # Empty role should fail
+        res = await repo.jobs_add(company="C", role="", description="d")
+        assert res["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_jobs_update_invalid_status(session_maker, make_user):
+    user_id, factory = make_user
+    async with session_maker() as s:
+        repo = factory(s)
+        add = await repo.jobs_add(company="C", role="R", description="d")
+        bad = await repo.jobs_update(add["job"]["id"], status="nonsense")
+        assert bad["ok"] is False
+        assert "invalid status" in bad["error"]

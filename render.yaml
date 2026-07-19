@@ -1,0 +1,35 @@
+# Render Blueprint — 北斗星 SaaS 后端
+# https://render.com/docs/blueprint-spec
+# 部署步骤见 docs/deployment.md
+
+services:
+  - type: web
+    name: beidou-api
+    runtime: python
+    # Python 3.11 — FastAPI + SQLAlchemy 2.x async 已验证可用
+    pythonVersion: "3.11"
+    plan: free  # 个人项目足够；用户量上来后升级 starter
+    buildCommand: pip install -e ".[web,gui]" && pip install "psycopg[binary]" alembic
+    startCommand: alembic upgrade head && uvicorn career_compass.web.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Postgres 连接串（来自 Neon）
+      - key: DATABASE_URL
+        sync: false  # 在 Render 控制台手动填，关联 Neon 数据库 URL
+      # JWT 签名密钥；本地用 `openssl rand -hex 32` 生成后填入
+      - key: SECRET_KEY
+        sync: false
+      # LLM 平台 key（M5 才会做 BYOK；现在统一走平台 key）
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: anthropic
+      # 应用环境
+      - key: ENV
+        value: production
+      # 让 web app 知道自己在生产模式（关闭 CORS dev origins）
+      - key: CC_USERS_DATA_DIR
+        value: /tmp/cc-users

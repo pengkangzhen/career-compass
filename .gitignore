@@ -52,3 +52,6 @@ dev.db
 data/intake_session.json
 data/matrix_feedback.yaml
 data/pareto.md
+
+# SaaS per-user local dev data (data/users/<uuid>/ generated at runtime)
+data/users/
