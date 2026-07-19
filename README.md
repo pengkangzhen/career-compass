@@ -232,6 +232,8 @@ See `docs/matching-engine.md` (Phase 2), `docs/schema-v2.md`.
 
 Playbooks under `playbooks/` and some `docs/` remain Chinese (agent conversation scripts).
 
+SaaS deploy: [docs/deployment.md](docs/deployment.md) (Vercel + Render + Neon). Live: https://career-compass-gilt.vercel.app
+
 ## Design principles
 
 - **Evidence-driven** — strengths need proof; signals need sources; scores cite rationale; never treat model priors as "retrieved signals"

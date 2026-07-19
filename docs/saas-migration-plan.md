@@ -69,6 +69,8 @@
 - Fly.io / Railway / Render:PaaS,免运维,但国内访问可能不稳。
 - K8s:为时过早;SaaS 化早期产品价值大于规模化能力。
 
+> **当前线上（2026-07）**:已按 Vercel + Render + Neon 落地；事实与操作步骤以 [`docs/deployment.md`](deployment.md) 为准。
+
 ### 2.4 LLM key 策略
 
 **推荐:平台统一 key + 配额(默认);用户可选自带 key(BYOK)**

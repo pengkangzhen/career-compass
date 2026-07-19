@@ -261,6 +261,8 @@ GUI 顶栏展示用户旅程；CLI / Agent 使用引擎阶段名。`uv run caree
 
 `playbooks/` 与部分 `docs/` 仍为中文（Agent 对话脚本）。
 
+线上部署见 [docs/deployment.md](docs/deployment.md)（Vercel + Render + Neon）。试用：https://career-compass-gilt.vercel.app
+
 ## 设计原则
 
 - **证据驱动**：优势挂证据，信号带来源，评分引依据；禁止把模型先验当「检索信号」

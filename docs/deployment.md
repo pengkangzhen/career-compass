@@ -4,21 +4,48 @@
 
 **全程预计 20-30 分钟**（不含 Neon / Render / Vercel 各自的注册时间）。
 
+---
+
+## 当前线上环境 / Live stack
+
+> 2026-07-19 起已上线。密钥只在各平台控制台；仓库与本文只用占位符。
+
+| 层 | 平台 / 组件 | 说明 |
+|----|-------------|------|
+| **Frontend** | Vercel — React/Vite SPA（`frontend/`） | https://career-compass-gilt.vercel.app |
+| **Backend** | Render Web Service `beidou-api` — FastAPI + uvicorn | https://beidou-api.onrender.com |
+| **Database** | Neon Postgres（Singapore / `ap-southeast-1`） | `DATABASE_URL=postgresql+psycopg://...?sslmode=require` |
+| **Auth** | JWT | `SECRET_KEY` 设在 Render |
+| **LLM** | 腾讯云 CloudBase（`hy3-preview`） | `CC_LLM_PROVIDER=cloudbase` 等，见 `render.yaml` |
+| **CORS** | Render 环境变量 | `CORS_ALLOW_ORIGINS=https://career-compass-gilt.vercel.app` |
+| **IaC** | `render.yaml` Blueprint | 后端一键部署 |
+| **Migrations** | Alembic | 启动时 `alembic upgrade head` |
+
+**免费档注意**：Render 无请求约 15 分钟休眠，冷启动约 30–60s；Neon 免费档（存储/计算小时有限）对早期个人项目足够。
+
+前端与后端分离：Vercel 通过 `VITE_API_BASE` 指向 Render API；后端 **不** 打包 SPA dist。
+
+健康检查：`https://beidou-api.onrender.com/api/health` → `{"ok": true, "db": "up"}`。
+
+---
+
 ## 架构总览
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │ Vercel — 前端 React SPA                            │
-│   URL: https://<your-app>.vercel.app               │
+│   线上: https://career-compass-gilt.vercel.app     │
+│   自建: https://<your-app>.vercel.app              │
 └─────────────────────────────────────────────────────┘
                        ↓ HTTPS fetch /api/*
 ┌─────────────────────────────────────────────────────┐
-│ Render — FastAPI 后端                               │
-│   URL: https://<your-api>.onrender.com             │
+│ Render — FastAPI 后端（beidou-api）                 │
+│   线上: https://beidou-api.onrender.com            │
+│   自建: https://<your-api>.onrender.com            │
 └─────────────────────────────────────────────────────┘
                        ↓ SQLAlchemy async
 ┌─────────────────────────────────────────────────────┐
-│ Neon — Postgres 16                                  │
+│ Neon — Postgres（Singapore）                        │
 │   DATABASE_URL: postgresql+psycopg://...           │
 └─────────────────────────────────────────────────────┘
 ```
@@ -27,35 +54,17 @@
 
 ## 前置条件
 
-- 一个 GitHub 账号（已有，仓库 `pengkangzhen/career-compass`）
-- 一组 LLM API key（至少 `ANTHROPIC_API_KEY` 或 `OPENAI_API_KEY`）—— 用作 intake chat 的引擎
+- 一个 GitHub 账号（仓库 `pengkangzhen/career-compass`）
+- 一组 LLM 凭证——**默认**腾讯云 CloudBase（`CC_CLOUDBASE_API_KEY`）；也可备用 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`
 - 浏览器（Chrome / Edge / Safari 都行）
 
 ---
 
 ## 步骤 1：先把改动 push 到 GitHub
 
-本地仓库已有所有 M3 改动（schema、Repository、router 切换、迁移脚本、render.yaml、vite 配置、CORS）。先 commit 并 push 到 `main`。
+本地仓库需有 schema、Repository、router、迁移、`render.yaml`、前端 `VITE_API_BASE`、CORS 等。commit 并 push 到 `main` 后再走下方平台配置。
 
 ```bash
-git add -A
-git commit -m "M3: per-user data layer in Postgres + SaaS deployment configs
-
-- New SQLAlchemy models (profile/constraints/narrative/saved_job/
-  opportunity_matrix/matrix_feedback_action/chat_message/chat_session_state/
-  projects) + Alembic migration 0002.
-- New Repository class with tmpdir round-trip strategy — keeps every
-  existing file-based view builder (build_all_views / IntakeEngine /
-  pipeline / render) unchanged; syncs DB state to a per-request tmpdir
-  on entry, upserts changes back on exit.
-- routers/data.py swapped from AppApi(file) to Repository(DB); all 10
-  endpoints now run against Postgres with user isolation.
-- scripts/migrate_files_to_db.py — idempotent one-shot importer.
-- render.yaml + frontend vite API_BASE + CORS_ALLOW_ORIGINS env support
-  for production deployment.
-
-195/195 tests passing."
-
 git push origin main
 ```
 
@@ -68,11 +77,11 @@ git push origin main
 3. Project 创建完成后，找到 **Connection Details** 区域
 4. 复制 **Connection string**，形如：
    ```
-   postgresql://user:password@ep-xxx.sg-region.aws.neon.tech/beidou?sslmode=require
+   postgresql://user:<PASSWORD>@ep-xxx.ap-southeast-1.aws.neon.tech/beidou?sslmode=require
    ```
 5. **改成 SQLAlchemy 用的格式**（加 `+psycopg` 后缀）：
    ```
-   postgresql+psycopg://user:password@ep-xxx.sg-region.aws.neon.tech/beidou?sslmode=require
+   postgresql+psycopg://user:<PASSWORD>@ep-xxx.ap-southeast-1.aws.neon.tech/beidou?sslmode=require
    ```
 6. 把这个 URL 记下来 —— 后面 Render 要用
 
@@ -90,14 +99,24 @@ git push origin main
 
    | Key | Value |
    |-----|-------|
-   | `DATABASE_URL` | 步骤 2 拿到的 `postgresql+psycopg://...?sslmode=require` |
-   | `SECRET_KEY` | 终端跑 `openssl rand -hex 32` 生成 |
-   | `ANTHROPIC_API_KEY` | 你的 Anthropic key（或留空，但 chat 会不可用） |
-   | `OPENAI_API_KEY` | 你的 OpenAI key（可选） |
-   | `LLM_PROVIDER` | `anthropic` 或 `openai` |
+   | `DATABASE_URL` | 步骤 2 的 `postgresql+psycopg://...?sslmode=require` |
+   | `SECRET_KEY` | 终端跑 `openssl rand -hex 32` 生成（勿提交仓库） |
+   | `CC_CLOUDBASE_API_KEY` | 腾讯云 CloudBase API Key（默认 LLM） |
+   | `ANTHROPIC_API_KEY` | 可选备用 |
+   | `OPENAI_API_KEY` | 可选备用 |
    | `CORS_ALLOW_ORIGINS` | 步骤 5 拿到 Vercel URL 后回填，**先留空** |
 
-6. 点 **Create Web Service**，等首次部署（约 3-5 分钟，会装依赖 + 跑 `alembic upgrade head` + 启 uvicorn）
+   Blueprint 已写入（无需手填，除非要改）：
+
+   | Key | 默认值 |
+   |-----|--------|
+   | `PYTHON_VERSION` | `3.11.11` |
+   | `CC_LLM_PROVIDER` | `cloudbase` |
+   | `CC_LLM_MODEL` | `hy3-preview` |
+   | `CC_CLOUDBASE_BASE_URL` | CloudBase gateway URL（见 `render.yaml`） |
+   | `ENV` | `production` |
+
+6. 点 **Create Web Service**，等首次部署（约 3-5 分钟：`pip install -e ".[web]"` + `alembic upgrade head` + uvicorn）
 7. 部署完成后，访问 `https://<your-api>.onrender.com/api/health`，应该看到：
    ```json
    {"ok": true, "db": "up"}
@@ -136,10 +155,10 @@ git push origin main
 
 ## 步骤 6：验收
 
-1. 浏览器打开 `https://<your-app>.vercel.app`
+1. 浏览器打开 `https://<your-app>.vercel.app`（线上即 https://career-compass-gilt.vercel.app）
 2. 点 **注册** → 输入邮箱密码 → 应该跳到登录页
 3. 登录 → 应该看到 Beidou 主界面（Journey Bar + 空 views）
-4. 在「对话」Tab 发条消息 → 如果配了 LLM key，会收到 AI 回复；profile 自动入库
+4. 在「对话」Tab 发条消息 → 若配了 CloudBase（或备用 LLM）key，会收到 AI 回复；profile 自动入库
 5. 在「岗位收藏」加一条 JD → 刷新页面，应该还在
 6. **重启 Render 服务**（手动 trigger redeploy）后再登录 → 数据应该还在（DB 持久化验证）
 
@@ -151,7 +170,7 @@ git push origin main
 检查浏览器 devtools Network 面板：登录请求是否成功？token 是否写到 localStorage？
 
 ### Q: chat_send 报 500
-LLM key 没配。Render 控制台 → Environment → 设置 `ANTHROPIC_API_KEY` 或 `OPENAI_API_KEY`，再 redeploy。
+LLM 未配。Render → Environment → 设置 `CC_CLOUDBASE_API_KEY`（或 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`），再 redeploy。默认 provider 为 `CC_LLM_PROVIDER=cloudbase`。
 
 ### Q: 浏览器报 CORS 错误
 `CORS_ALLOW_ORIGINS` 没设或拼错。检查 Render Environment，必须严格匹配 Vercel URL（含 `https://`，无尾部 `/`）。
@@ -160,10 +179,21 @@ LLM key 没配。Render 控制台 → Environment → 设置 `ANTHROPIC_API_KEY`
 免费档会休眠。要么忍受 30-60s 唤醒，要么升级 Starter。
 
 ### Q: 国内访问慢
-Render / Vercel / Neon 都在境外。早期忍受，后续 M6 接 Cloudflare CDN 或迁国内云备案。
+Render / Vercel / Neon 都在境外。早期忍受，后续可接 CDN 或迁国内云备案。
 
 ### Q: 想换域名
 Vercel 设置 → Domains → 添加自定义域名（你需要拥有该域名并配 DNS）。
+
+---
+
+## 已知坑 / Troubleshooting from 2026-07-19 deploy
+
+首次上线时踩过并已修进仓库的点：
+
+1. **`pythonVersion` 非法** — Render Blueprint 不支持 `pythonVersion` 字段；用环境变量 `PYTHON_VERSION=3.11.11`（已写在 `render.yaml`）。
+2. **hatchling force-include SPA dist** — 强制打包 gitignore 的 `gui/static/dist` 会让 Render build 失败。已去掉；Render 只 `pip install -e ".[web]"`，前端独立在 Vercel。
+3. **`markdown` 必须进 `[web]` extras** — Repository 会 import `gui.md`；缺依赖则启动失败。
+4. **前后端分离** — 前端在 Vercel（`VITE_API_BASE`）；后端不发布 SPA dist。
 
 ---
 
