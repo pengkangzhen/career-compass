@@ -22,7 +22,7 @@ def test_render_opportunities_overview_columns(examples_dir: Path):
     out = render_opportunities(examples_dir / "opportunities.yaml")
     assert "系统不替你做选择" in out
     assert "统一架构" in out
-    assert "比较优势" in out
+    assert "核心竞争力" in out
     assert "L1" not in out and "L2" not in out
 
 

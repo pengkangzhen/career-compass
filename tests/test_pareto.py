@@ -352,7 +352,7 @@ class TestRender:
 
         out = render_pareto_view(path)
         assert "维度说明" in out
-        assert "比较优势" in out
+        assert "核心竞争力" in out
         assert "Ikigai" in out
 
     def test_render_custom_dims(self, tmp_path):
@@ -401,8 +401,8 @@ class TestRender:
 
         out = render_pareto_view(path)
         assert "独占强项" in out
-        assert "比较优势" in out  # a 独占 fit
-        assert "顺风" in out     # b 独占 wind
+        assert "核心竞争力" in out  # a 独占 fit
+        assert "行业趋势" in out     # b 独占 wind
 
 
 # ---------- CLI smoke test ----------

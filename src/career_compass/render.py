@@ -210,13 +210,13 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 | **值不值得现在进** | 竞争多激烈、现在是顺风还是逆风 |
 | **坑在哪** | 浅层热门岗、主要机会成本、试错代价 |
 
-下方 **比较优势 / Ikigai / 顺风逆风 / 试错成本** 是矩阵内的评分维度（与上方四个用户模块不是同一套分类）：
+下方 **核心竞争力 / Ikigai / 行业趋势 / 试错成本** 是矩阵内的评分维度（与上方四个用户模块不是同一套分类）：
 
 | 维度 | 问什么 | 常见评级 |
 |------|--------|----------|
-| **比较优势** | 在这个方向上，什么是别人难以复制的？ | 高 / 中 / 低 |
-| **Ikigai 四圈** | 热爱 × 擅长 × 被需要 × 有回报（期权见 `opens_up`） | 高 / 中 / 低 |
-| **顺风/逆风** | 外部市场：需求在涨还是饱和内卷？ | 顺风 / 弱顺风 / 中 / 逆风 |
+| **核心竞争力** | 在这个方向上，什么是别人难以复制的？ | 高 / 中 / 低 |
+| **Ikigai** | 热爱 × 擅长 × 被需要 × 有回报（期权见 `opens_up`） | 高 / 中 / 低 |
+| **行业趋势** | 外部市场：需求在涨还是饱和内卷？ | 顺风 / 弱顺风 / 中 / 逆风 |
 | **试错成本** | 走错第一步要付出多少？ | 低 / 高 |
 
 **综合评级 A–F**：A=强烈推荐 · B=值得认真比较 · C=备选 · D=勉强
@@ -233,7 +233,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 方向总览
 
-| # | 方向 | 岗位名称 | 相关企业 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
+| # | 方向 | 岗位名称 | 相关企业 | 核心工作 | 组织类型 | 核心竞争力 | Ikigai | 行业趋势 | 试错成本 | 综合 |
 |---|------|----------|----------|----------|----------|----------|------------|-----------|--------|------|
 {% for row in primary_rows -%}
 | {{ loop.index }} | {{ row.positioning }}{% if row.track and row.track != row.positioning %} · {{ row.track }}{% endif %} | {{ row.top_role }} | {{ row.related_companies }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} |
@@ -243,7 +243,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 ### 方向对比摘要
 
-| 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
+| 方向 | 综合 | 核心竞争力（一句话） | 主要机会成本 | 试错第一步 |
 |------|------|-------------------|-------------|-----------|
 {% for row in primary_rows -%}
 | {{ row.positioning }}{% if row.track and row.track != row.positioning %} · {{ row.track }}{% endif %} | {{ row.opp.composite }} | {{ row.opp.fit_rationale[:60] }}{% if row.opp.fit_rationale|length > 60 %}…{% endif %} | {{ row.opp.costs[0] if row.opp.costs else "—" }} | {{ row.opp.first_step[:50] if row.opp.first_step else "—" }}{% if row.opp.first_step and row.opp.first_step|length > 50 %}…{% endif %} |
@@ -267,10 +267,10 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 {% if o.role_families %}
 - 市场称呼示例（岗位名会变，能力组合才是锚点；仅供投递检索）：
 
-| 当前常见称呼 | 资历 | 匹配度 | 竞争强度 |
-|-------------|------|--------|----------|
+| 当前常见称呼 | 资历 | 匹配度 |
+|-------------|------|--------|
 {% for rf in o.role_families -%}
-| {{ rf.role }} | {{ rf.seniority or "—" }} | {{ rf.match_score if rf.match_score is not none else "—" }} | {{ rf.competition_index if rf.competition_index is not none else "—" }} |
+| {{ rf.role }} | {{ rf.seniority or "—" }} | {{ rf.match_score if rf.match_score is not none else "—" }} |
 {% endfor %}
 
 {% endif %}
@@ -278,7 +278,7 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 | 维度 | 评级 | 依据 |
 |------|------|------|
-| 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
+| 核心竞争力 | {{ o.fit }} | {{ o.fit_rationale }} |
 {% if o.skill_gaps %}
 - 还缺什么：
 
@@ -291,10 +291,8 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
 | 维度 | 评级 | 依据 |
 |------|------|------|
-| 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
-| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
-{% if o.competition_index is not none %}- 竞争激烈程度：{{ "%.2f"|format(o.competition_index) }}
-{% endif %}
+| 行业趋势 | {{ o.wind }} | {{ o.wind_rationale }} |
+| Ikigai | {{ o.match }} | {{ o.match_rationale }} |
 
 **坑在哪**
 
@@ -751,7 +749,7 @@ def render_execution_pack(
 _PARETO_TEMPLATE = """## Pareto 前沿 — 多目标决策视图
 
 > 字母档（A-F）把多个维度压成一个分数，隐含「系统知道你的偏好」。
-> 现实中职业选择是多目标问题——比较优势、Ikigai、市场风向、试错成本、
+> 现实中职业选择是多目标问题——核心竞争力、Ikigai、行业趋势、试错成本、
 > 资格门槛、竞争密度——彼此不可公度。
 >
 > **Pareto 前沿** = 在所有维度上都没有其他方向严格优于的方向。
@@ -805,9 +803,9 @@ _PARETO_TEMPLATE = """## Pareto 前沿 — 多目标决策视图
 
 
 _PARETO_DIMENSIONS_META: tuple[dict[str, str], ...] = (
-    {"key": "fit", "label": "比较优势", "desc": "你能拿出的不可复制优势", "source": "ScoredPath.fit (高/中/低)"},
+    {"key": "fit", "label": "核心竞争力", "desc": "你能拿出的不可复制优势", "source": "ScoredPath.fit (高/中/低)"},
     {"key": "match", "label": "Ikigai", "desc": "热爱×擅长×被需要×回报的交集", "source": "ScoredPath.match"},
-    {"key": "wind", "label": "顺风", "desc": "外部市场需求趋势", "source": "ScoredPath.wind (顺风/逆风)"},
+    {"key": "wind", "label": "行业趋势", "desc": "外部市场需求趋势", "source": "ScoredPath.wind (顺风/逆风)"},
     {"key": "trial_cost", "label": "试错", "desc": "走错第一步的代价（低=好）", "source": "ScoredPath.risk 反向"},
     {"key": "hiring_fit", "label": "资格", "desc": "与 fit 正交的招聘资格关", "source": "ScoredPath.hiring_fit / eligibility"},
     {"key": "competition", "label": "竞争", "desc": "市场拥挤度（低=好）", "source": "ScoredPath.competition_index 反向"},
