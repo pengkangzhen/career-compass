@@ -15,6 +15,13 @@ from sqlalchemy.pool import StaticPool
 from career_compass.web.models import Base, Constraints, Profile, User
 from career_compass.web.repository import Repository
 
+# Pre-import career_compass.cli so that the regression test below mirrors the
+# SaaS web-server scenario where cli is imported once at process startup (with
+# whatever CC_DATA is then) and reused for every request. Without the fix in
+# _run_cli, cli.DATA / cli.PROFILE / ... would stay bound to that initial
+# value regardless of the per-request CC_DATA override.
+import career_compass.cli  # noqa: E402,F401
+
 
 @pytest_asyncio.fixture
 async def engine():
@@ -224,13 +231,23 @@ async def test_run_command_validate_uses_tmpdir_data(session_maker, make_user):
     repo's bundled data/.
 
     Regression: cli.py binds DATA at import time, so setting CC_DATA in
-    _run_cli had no effect — the CLI kept reading the repo's bundled
-    data/profile.yaml. We prove the fix by giving the user a profile whose
+    _run_cli had no effect — the CLI kept reading whatever CC_DATA was when
+    career_compass.cli was first imported. In the SaaS web server the cli
+    module is imported once per process, so user B's validate would run
+    against user A's tmpdir (or the repo's bundled data/ if cli was imported
+    before any request).
+
+    We simulate that scenario by importing career_compass.cli up-front (the
+    way a long-running server would), then give the user a profile whose
     `experience[0].role` is a unique marker AND whose `experience[0].company`
     is a placeholder ("TODO"); validate() then emits a warning quoting the
     role: "经历 '<marker>' 的公司/职责含占位内容". Without the fix the CLI
-    would read the repo's bundled profile instead and never see the marker.
+    would keep using the import-time DATA binding and never see the marker.
     """
+    # career_compass.cli is pre-imported at module top to mirror a
+    # long-running server, where the cli module is imported once at startup
+    # (binding DATA / PROFILE / ... at that moment) and reused across
+    # requests. The fix in _run_cli rebinds those attrs per call.
     user_id, factory = make_user
     marker = "UniqueValidateMarker9f3a"
     profile_content = {
@@ -289,5 +306,5 @@ async def test_run_command_validate_uses_tmpdir_data(session_maker, make_user):
     output = result["output"]
     # The CLI processed the user's tmpdir profile, so the unique role marker
     # appears in validate's placeholder warning. Without the fix this would
-    # be absent (CLI would read the repo's bundled profile instead).
+    # be absent (CLI would read whatever DATA was bound at import time).
     assert marker in output, f"marker missing from validate output:\n{output}"
