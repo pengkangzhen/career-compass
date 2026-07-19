@@ -6,14 +6,15 @@ services:
   - type: web
     name: beidou-api
     runtime: python
-    # Python 3.11 — FastAPI + SQLAlchemy 2.x async 已验证可用
-    pythonVersion: "3.11"
     plan: free  # 个人项目足够；用户量上来后升级 starter
     buildCommand: pip install -e ".[web,gui]" && pip install "psycopg[binary]" alembic
     startCommand: alembic upgrade head && uvicorn career_compass.web.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
+      # Python 版本（render.yaml 不支持 pythonVersion 字段；走 PYTHON_VERSION 环境变量）
+      - key: PYTHON_VERSION
+        value: "3.11.11"
       # Postgres 连接串（来自 Neon）
       - key: DATABASE_URL
         sync: false  # 在 Render 控制台手动填，关联 Neon 数据库 URL
