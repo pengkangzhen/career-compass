@@ -39,3 +39,16 @@ data/signals/*
 
 # Frontend
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+frontend/*.tsbuildinfo
+
+# SaaS dev 数据库（含用户密码 hash，严禁入库）
+dev.db
+*.db
+*.sqlite
+*.sqlite3
+
+# 本地实验 / 个人数据
+data/intake_session.json
+data/matrix_feedback.yaml
+data/pareto.md

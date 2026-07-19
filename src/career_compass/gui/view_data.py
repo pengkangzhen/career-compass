@@ -156,13 +156,20 @@ def build_jobs_view(data_dir: Path) -> dict:
 
     jobs = []
     for job in data.jobs:
+        desc = (job.description or "").strip()
+        preview = desc[:240] + ("…" if len(desc) > 240 else "") if desc else ""
         item: dict = {
+            "id": job.id,
             "company": job.company,
             "role": job.role,
             "location": job.location,
+            "source": job.source,
             "saved_on": str(job.saved_on),
             "status": job.status.value,
+            "linked_direction": job.linked_direction,
             "notes": job.notes,
+            "description": desc,
+            "description_preview": preview,
         }
         if profile:
             report = analyze_saved_job(job, profile, projects, constraints, data_dir=data_dir)
@@ -177,54 +184,89 @@ def build_jobs_view(data_dir: Path) -> dict:
 
 
 def build_matrix_view(data_dir: Path) -> dict:
-    md_path = data_dir / "opportunities.md"
-    if md_path.exists():
-        return {
-            "empty": False,
-            "format": "markdown",
-            "content": md_path.read_text(encoding="utf-8"),
-        }
-
+    # 渲染优先级：
+    #   1. opportunities.yaml 可解析 → 始终返回结构化 primary 行（可编辑表格）
+    #      同时附带 markdown 文本（若 .md 存在）供前端切换「渲染文档」视图
+    #   2. 仅 .md 存在 → 退化到 markdown 直显（format=markdown）
+    #   3. 二者皆无 → 空状态
     yaml_path = data_dir / "opportunities.yaml"
+    md_path = data_dir / "opportunities.md"
+
+    yaml_rows: list[dict] | None = None
+    unified_theme: str | None = None
+    shared_assets: list[str] = []
     if yaml_path.exists():
-        matrix = load_opportunities(yaml_path)
+        try:
+            matrix = load_opportunities(yaml_path)
+        except Exception:
+            matrix = None
+        if matrix is not None:
+            from career_compass.render import _load_companies_by_role
 
-        def _rows(opps: list, *, synergy: bool = False) -> list[dict]:
-            from career_compass.render import _resolve_opportunity_display
+            companies_by_role = _load_companies_by_role(yaml_path)
 
-            cap_by_name = {c.name: c for c in matrix.capability_axes}
-            emp_by_id = {e.id: e.name for e in matrix.employer_axes}
-            rows = []
-            for i, o in enumerate(opps, 1):
-                disp = _resolve_opportunity_display(
-                    o, cap_by_name=cap_by_name, emp_by_id=emp_by_id,
-                )
-                row = {
-                    "rank": i,
-                    "direction": o.direction,
-                    "positioning": disp["positioning"],
-                    "track": disp["track"],
-                    "summary": disp["summary"],
-                    "employer": disp["emp_label"],
-                    "fit": o.fit,
-                    "match": o.match,
-                    "wind": o.wind,
-                    "risk": o.risk,
-                    "composite": o.composite,
-                }
-                if synergy:
-                    row["synergy"] = "；".join(o.synergizes_with) if o.synergizes_with else "—"
-                rows.append(row)
-            return rows
+            def _rows(opps: list) -> list[dict]:
+                from career_compass.render import _resolve_opportunity_display
 
+                cap_by_name = {c.name: c for c in matrix.capability_axes}
+                emp_by_id = {e.id: e.name for e in matrix.employer_axes}
+                rows = []
+                for i, o in enumerate(opps, 1):
+                    disp = _resolve_opportunity_display(
+                        o,
+                        cap_by_name=cap_by_name,
+                        emp_by_id=emp_by_id,
+                        companies_by_role=companies_by_role,
+                    )
+                    positioning = disp["positioning"]
+                    track = disp["track"]
+                    row = {
+                        "rank": i,
+                        "direction": o.direction,
+                        "positioning": positioning,
+                        "track": track,
+                        "job_title": disp["top_role"],
+                        "related_companies": disp["related_companies"],
+                        "summary": disp["summary"],
+                        "employer": disp["emp_label"],
+                        "fit": o.fit,
+                        "match": o.match,
+                        "wind": o.wind,
+                        "risk": o.risk,
+                        "composite": o.composite,
+                    }
+                    rows.append(row)
+                return rows
+
+            yaml_rows = _rows(matrix.ranked_primary())
+            unified_theme = matrix.unified_theme
+            shared_assets = list(matrix.shared_assets)
+
+    md_text = md_path.read_text(encoding="utf-8") if md_path.exists() else ""
+
+    if yaml_rows is not None:
         return {
             "empty": False,
             "format": "yaml_summary",
-            "unified_theme": matrix.unified_theme,
-            "shared_assets": list(matrix.shared_assets),
-            "primary": _rows(matrix.ranked_primary()),
-            "side": _rows(matrix.ranked_side(), synergy=True),
-            "hint": "YAML 摘要 · 运行「渲染矩阵」生成完整 Markdown",
+            "content": md_text,
+            "has_markdown": bool(md_text),
+            "unified_theme": unified_theme,
+            "shared_assets": shared_assets,
+            "primary": yaml_rows,
+            "hidden_directions": _hidden_directions(data_dir),
+            "order_overrides": _order_overrides(data_dir),
+            "notes": _notes_by_direction(data_dir),
+            "hint": "可编辑视图 · 可切换查看已渲染的 Markdown 文档"
+            if md_text
+            else "YAML 摘要 · 运行「渲染矩阵」生成完整 Markdown",
+        }
+
+    if md_text:
+        return {
+            "empty": False,
+            "format": "markdown",
+            "content": md_text,
+            "has_markdown": True,
         }
 
     return {
@@ -232,6 +274,24 @@ def build_matrix_view(data_dir: Path) -> dict:
         "message": "「做出决策」尚无机会矩阵。",
         "hint": "完成探索世界后运行 analyze，生成 opportunities.yaml 再渲染矩阵。",
     }
+
+
+def _hidden_directions(data_dir: Path) -> list[str]:
+    from career_compass.matrix_feedback import hidden_directions, list_actions
+
+    return hidden_directions(list(a for a in list_actions(data_dir / "matrix_feedback.yaml")))
+
+
+def _order_overrides(data_dir: Path) -> list[str]:
+    from career_compass.matrix_feedback import list_actions, order_overrides
+
+    return order_overrides(list(a for a in list_actions(data_dir / "matrix_feedback.yaml")))
+
+
+def _notes_by_direction(data_dir: Path) -> dict[str, str]:
+    from career_compass.matrix_feedback import list_actions, notes_by_direction
+
+    return notes_by_direction(list(a for a in list_actions(data_dir / "matrix_feedback.yaml")))
 
 
 def build_execution_view(data_dir: Path) -> dict:

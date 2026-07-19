@@ -24,6 +24,17 @@ from .schema import (
 )
 
 
+def _find_repo_root() -> Path:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").exists() and (parent / "src" / "career_compass").exists():
+            return parent
+    return Path.cwd()
+
+
+_REPO_DATA = _find_repo_root() / "data"
+
+
 def brief(
     profile_path: Path,
     constraints_path: Path,
@@ -173,28 +184,21 @@ def brief(
 # - 块级元素（## / | table）前保留空行；{% endif %} 后若接下一块，模板里显式留空行
 _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 
-> **本项目的核心交付物。** 机会分 **主业** 与 **副业** 两层——不是互斥选项，而是同一能力栈的不同变现与期权路径。
+> **本项目的核心交付物。** 多条可比、有证据、可执行的方向，按综合评级排序。
 > **系统不替你做选择** —— 请结合价值观、硬约束与风险偏好自行判断。
 
-## 统一架构（主业 × 副业）
-
 {% if unified_theme %}
-{{ unified_theme }}
+## 统一架构
 
-{% else %}
-主业承载主身份与现金流（offer/职级）；副业共用同一能力栈，换可见度、人脉与可选收入。两者互相喂养，而非二选一。
+{{ unified_theme }}
 
 {% endif %}
 {% if shared_assets %}
-**共享资产**（两层共用，不必重复建设）：
+**共享资产**（多条方向共用，不必重复建设）：
 
 {% for a in shared_assets %}
 - {{ a }}
 {% endfor %}
-
-{% endif %}
-{% if synergy_notes %}
-**协同方式**：{{ synergy_notes }}
 
 {% endif %}
 ## 每个方向回答四个问题
@@ -225,31 +229,27 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 ## 机会矩阵
 
 > 下列方向已综合你的能力、偏好与约束；按综合评级排序，**系统不替你做选择**。
-> **矩阵按「价值定位」组织，不按岗位头衔**——AI 浪潮下岗位名快速生灭，但「解决什么问题、用什么能力组合」相对稳定；详情中的市场称呼仅供投递检索参考。
+> **矩阵按「方向」（你解决什么问题 + 行业赛道）组织，不按岗位头衔**——AI 浪潮下岗位名快速生灭，但「解决什么问题、用什么能力组合」相对稳定；岗位名称与相关企业仅供投递检索参考。
 
-## 主业（Primary）
+### 方向总览
 
-> 主线职业路径：换 offer、职级、行业身份。通常是时间投入的大头。
-
-### 主业总览
-
-| # | 价值定位 | 赛道 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
-|---|----------|------|----------|----------|----------|------------|-----------|--------|------|
+| # | 方向 | 岗位名称 | 相关企业 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 |
+|---|------|----------|----------|----------|----------|----------|------------|-----------|--------|------|
 {% for row in primary_rows -%}
-| {{ loop.index }} | {{ row.positioning }} | {{ row.track }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} |
+| {{ loop.index }} | {{ row.positioning }}{% if row.track and row.track != row.positioning %} · {{ row.track }}{% endif %} | {{ row.top_role }} | {{ row.related_companies }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} |
 {% else -%}
-| — | (暂无主业方向) | — | — | — | — | — | — | — | — |
+| — | (暂无方向) | — | — | — | — | — | — | — | — | — |
 {% endfor %}
 
-### 主业对比摘要
+### 方向对比摘要
 
-| 价值定位 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
-|----------|------|-------------------|-------------|-----------|
+| 方向 | 综合 | 比较优势（一句话） | 主要机会成本 | 试错第一步 |
+|------|------|-------------------|-------------|-----------|
 {% for row in primary_rows -%}
-| {{ row.positioning }} · {{ row.track }} | {{ row.opp.composite }} | {{ row.opp.fit_rationale[:60] }}{% if row.opp.fit_rationale|length > 60 %}…{% endif %} | {{ row.opp.costs[0] if row.opp.costs else "—" }} | {{ row.opp.first_step[:50] if row.opp.first_step else "—" }}{% if row.opp.first_step and row.opp.first_step|length > 50 %}…{% endif %} |
+| {{ row.positioning }}{% if row.track and row.track != row.positioning %} · {{ row.track }}{% endif %} | {{ row.opp.composite }} | {{ row.opp.fit_rationale[:60] }}{% if row.opp.fit_rationale|length > 60 %}…{% endif %} | {{ row.opp.costs[0] if row.opp.costs else "—" }} | {{ row.opp.first_step[:50] if row.opp.first_step else "—" }}{% if row.opp.first_step and row.opp.first_step|length > 50 %}…{% endif %} |
 {% endfor %}
 
-### 主业详情
+### 方向详情
 
 {% for row in primary_rows %}
 #### {{ loop.index }}. {{ row.positioning }}（{{ row.emp_label }}）　·　综合 {{ row.opp.composite }}
@@ -323,60 +323,6 @@ _OPPORTUNITIES_TEMPLATE = """# 机会矩阵 — {{ generated_on }}
 ---
 {% endfor %}
 
-## 副业（Side）
-
-> 与主业**共用能力栈**：强化可见度、人脉、可选现金流；很多副业的 first_step 同时是主业投递的敲门砖。
-
-### 副业总览
-
-| # | 价值定位 | 赛道 | 核心工作 | 组织类型 | 比较优势 | Ikigai 四圈 | 顺风/逆风 | 试错成本 | 综合 | 协同主业 |
-|---|----------|------|----------|----------|----------|------------|-----------|--------|------|----------|
-{% for row in side_rows -%}
-| {{ loop.index }} | {{ row.positioning }} | {{ row.track }} | {{ row.summary[:48] }}{% if row.summary|length > 48 %}…{% endif %} | {{ row.emp_label }} | {{ row.opp.fit }} | {{ row.opp.match }} | {{ row.opp.wind }} | {{ row.opp.risk }} | {{ row.opp.composite }} | {{ row.opp.synergizes_with|join("；") if row.opp.synergizes_with else "—" }} |
-{% else -%}
-| — | (暂无副业方向) | — | — | — | — | — | — | — | — | — |
-{% endfor %}
-
-### 副业详情
-
-{% for row in side_rows %}
-{% set o = row.opp %}
-#### {{ loop.index }}. {{ row.positioning }}（{{ row.emp_label }}）　·　综合 {{ o.composite }}
-
-> {{ row.summary }}
-
-{% if o.synergizes_with %}
-**协同主业**：{{ o.synergizes_with|join(" · ") }}
-
-{% endif %}
-| 维度 | 评级 | 依据 |
-|------|------|------|
-| 比较优势 | {{ o.fit }} | {{ o.fit_rationale }} |
-| Ikigai 四圈 | {{ o.match }} | {{ o.match_rationale }} |
-| 顺风/逆风 | {{ o.wind }} | {{ o.wind_rationale }} |
-| 试错成本 | {{ o.risk }} | {{ o.risk_rationale }} |
-
-**打开的选项**
-
-{% for x in o.opens_up %}
-- {{ x }}
-{% else %}
-- (待填)
-{% endfor %}
-
-**机会成本**
-
-{% for x in o.costs %}
-- {{ x }}
-{% else %}
-- (待填)
-{% endfor %}
-
-**试错第一步**：{{ o.first_step or "(待填)" }}
-
----
-{% endfor %}
-
 ## 下一步（可选）
 
 **核心交付到此结束。** 请从矩阵中**自行选定**方向；以下为可选延伸：
@@ -392,8 +338,13 @@ def _resolve_opportunity_display(
     *,
     cap_by_name: dict[str, CapabilityAxis],
     emp_by_id: dict[str, str],
+    companies_by_role: dict[str, dict[str, list[str]]] | None = None,
 ) -> dict:
-    """为总览表解析展示字段（兼容未填充 capability_name 的旧 YAML）。"""
+    """为总览表解析展示字段（兼容未填充 capability_name 的旧 YAML）。
+
+    `companies_by_role`: role 名称 → typical_companies dict（A/B/C → list）。
+    若提供，则为每条方向查 related_companies（取 A 档，无则取 B 档，无则 "—"）。
+    """
     cap_name = o.capability_name
     if not cap_name:
         if "（" in o.direction:
@@ -424,14 +375,23 @@ def _resolve_opportunity_display(
     if not summary:
         summary = "—"
 
+    related_companies = "—"
+    if companies_by_role and top_role:
+        tiers = companies_by_role.get(top_role)
+        if tiers:
+            picked = tiers.get("A") or tiers.get("B") or []
+            if picked:
+                related_companies = " · ".join(picked[:4])
+
     return {
         "opp": o,
         "cap_name": cap_name,
         "positioning": positioning,
         "emp_label": emp_label,
-        "top_role": top_role,
+        "top_role": top_role or "—",
         "track": track,
         "summary": summary,
+        "related_companies": related_companies,
     }
 
 
@@ -440,11 +400,36 @@ def _display_rows(
     *,
     cap_by_name: dict[str, CapabilityAxis],
     emp_by_id: dict[str, str],
+    companies_by_role: dict[str, dict[str, list[str]]] | None = None,
 ) -> list[dict]:
     return [
-        _resolve_opportunity_display(o, cap_by_name=cap_by_name, emp_by_id=emp_by_id)
+        _resolve_opportunity_display(
+            o,
+            cap_by_name=cap_by_name,
+            emp_by_id=emp_by_id,
+            companies_by_role=companies_by_role,
+        )
         for o in opps
     ]
+
+
+def _load_companies_by_role(opportunities_path: Path) -> dict[str, dict[str, list[str]]]:
+    """加载 role_taxonomy（含 public），构建 role 名 → typical_companies 映射。
+
+    仅在 opportunities.yaml 同目录或仓库 data/ 下查找；缺失则返回空 dict。
+    """
+    from .schema import load_role_taxonomy
+
+    candidates = [
+        opportunities_path.parent / "role_taxonomy.yaml",
+        opportunities_path.parent.parent / "data" / "role_taxonomy.yaml",
+        _REPO_DATA / "role_taxonomy.yaml",
+    ]
+    for p in candidates:
+        if p.exists():
+            tax = load_role_taxonomy(p)
+            return {rf.role: rf.typical_companies for rf in tax.role_families if rf.typical_companies}
+    return {}
 
 
 def render_opportunities(
@@ -454,7 +439,12 @@ def render_opportunities(
     matrix = load_opportunities(opportunities_path)
     cap_by_name = {c.name: c for c in matrix.capability_axes}
     emp_by_id = {e.id: e.name for e in matrix.employer_axes}
-    ctx = dict(cap_by_name=cap_by_name, emp_by_id=emp_by_id)
+    companies_by_role = _load_companies_by_role(opportunities_path)
+    ctx = dict(
+        cap_by_name=cap_by_name,
+        emp_by_id=emp_by_id,
+        companies_by_role=companies_by_role,
+    )
 
     cross_section = ""
     prof_path = profile_path or opportunities_path.parent / "profile.yaml"
@@ -465,12 +455,9 @@ def render_opportunities(
         generated_on=matrix.generated_on.isoformat(),
         unified_theme=matrix.unified_theme,
         shared_assets=matrix.shared_assets,
-        synergy_notes=matrix.synergy_notes,
         cross_track_section=cross_section,
         ranked_primary=matrix.ranked_primary(),
-        ranked_side=matrix.ranked_side(),
         primary_rows=_display_rows(matrix.ranked_primary(), **ctx),
-        side_rows=_display_rows(matrix.ranked_side(), **ctx),
     )
 
 
@@ -756,4 +743,149 @@ def render_execution_pack(
         tier_c=tier_c,
         action_steps=action_steps[:6],
         red_lines=red_lines[:600] or "(见 constraints.yaml / narrative.md)",
+    )
+
+
+# ---------- Pareto 前沿视图 ----------
+
+_PARETO_TEMPLATE = """## Pareto 前沿 — 多目标决策视图
+
+> 字母档（A-F）把多个维度压成一个分数，隐含「系统知道你的偏好」。
+> 现实中职业选择是多目标问题——比较优势、Ikigai、市场风向、试错成本、
+> 资格门槛、竞争密度——彼此不可公度。
+>
+> **Pareto 前沿** = 在所有维度上都没有其他方向严格优于的方向。
+> 它们之间没有客观优劣，**需要你做价值判断**。
+> 字母档仍保留作为参考，但前沿视图才是「系统不替你做选择」的真正落点。
+
+### 前沿方向（{{ front|length }} / {{ total }}）
+
+{% if front %}
+| 方向 | {% for d in dims %}{{ d.label }} | {% endfor %}综合(参考) | 独占强项 |
+|------|{% for d in dims %}----|{% endfor %}------|---------|
+{% for e in front -%}
+| {{ e.label }} | {% for d in dims %}{{ e.scores[d.key] }} | {% endfor %}{{ e.composite }} | {{ e.distinctive or '—' }} |
+{% endfor %}
+
+**如何读**：
+{% for e in front %}
+- **{{ e.label }}**（综合 {{ e.composite }}）
+{%- if e.distinctive %} · 独占强项：{{ e.distinctive }}{% endif %}
+{%- if e.costs %} · 注意：{{ e.costs }}{% endif %}
+{% endfor %}
+{% else %}
+（无前沿方向——所有候选都被资格关 blocked，或矩阵为空）
+{% endif %}
+
+{% if dominated %}
+### 被支配方向（{{ dominated|length }}）
+
+> 这些方向在所有维度上都不优于某个前沿方向。若仍想投，需要明确「我换取了什么」。
+
+| 方向 | 被这些方向支配 | 综合(参考) |
+|------|---------------|------|
+{% for e in dominated -%}
+| {{ e.label }} | {{ e.dominated_by }} | {{ e.composite }} |
+{% endfor %}
+{% endif %}
+
+{% if dimensions_explainer %}
+### 维度说明
+
+| 维度 | 含义 | 数据来源 |
+|------|------|---------|
+{% for d in dims -%}
+| {{ d.label }} | {{ d.desc }} | {{ d.source }} |
+{% endfor %}
+
+> 想看不同维度组合的前沿？运行 `career-compass pareto --dims fit,match,wind`。
+> 想看被资格关 blocked 的方向？加 `--include-blocked`。
+{% endif %}
+"""
+
+
+_PARETO_DIMENSIONS_META: tuple[dict[str, str], ...] = (
+    {"key": "fit", "label": "比较优势", "desc": "你能拿出的不可复制优势", "source": "ScoredPath.fit (高/中/低)"},
+    {"key": "match", "label": "Ikigai", "desc": "热爱×擅长×被需要×回报的交集", "source": "ScoredPath.match"},
+    {"key": "wind", "label": "顺风", "desc": "外部市场需求趋势", "source": "ScoredPath.wind (顺风/逆风)"},
+    {"key": "trial_cost", "label": "试错", "desc": "走错第一步的代价（低=好）", "source": "ScoredPath.risk 反向"},
+    {"key": "hiring_fit", "label": "资格", "desc": "与 fit 正交的招聘资格关", "source": "ScoredPath.hiring_fit / eligibility"},
+    {"key": "competition", "label": "竞争", "desc": "市场拥挤度（低=好）", "source": "ScoredPath.competition_index 反向"},
+)
+
+
+def _format_dim_score(score: float) -> str:
+    """0-1 数值 → 紧凑展示：保留 1 位小数。"""
+    return f"{score:.1f}"
+
+
+def _cell_costs_summary(cell) -> str:
+    if not cell.costs:
+        return ""
+    # 取第一条非 replan 标记的成本，避免重复
+    for c in cell.costs:
+        if not c.startswith("[replan]"):
+            return c[:60] + ("…" if len(c) > 60 else "")
+    return cell.costs[0][:60]
+
+
+def render_pareto_view(
+    opportunities_path: Path,
+    *,
+    dimensions: tuple[str, ...] | None = None,
+    include_blocked: bool = False,
+    explain_dimensions: bool = True,
+) -> str:
+    """渲染 Pareto 前沿 markdown 段落。
+
+    dimensions: 维度 key 元组；None 用 pareto.DEFAULT_DIMENSIONS。
+    include_blocked: 是否纳入 eligibility=fail/blocked 的 cell（默认排除，让前沿可读）。
+    """
+    from .pareto import DIM_LABEL_ZH, pareto_from_matrix
+
+    matrix = load_opportunities(opportunities_path)
+    if dimensions is None:
+        report = pareto_from_matrix(matrix)
+    else:
+        # 自定义维度子集
+        from .pareto import compute_pareto_front
+        cells = matrix.cross_matrix if matrix.uses_orthogonal_matrix() else matrix.primary
+        report = compute_pareto_front(
+            cells, dimensions=dimensions, exclude_blocked=not include_blocked,
+        )
+
+    dims_meta = tuple(
+        m for m in _PARETO_DIMENSIONS_META if m["key"] in report.dimensions
+    )
+
+    def _entry_view(e):
+        scores_view = {
+            m["key"]: _format_dim_score(e.vector.get(m["key"], 0.5))
+            for m in dims_meta
+        }
+        distinctive_zh = "、".join(
+            DIM_LABEL_ZH[d] for d in e.distinctive_dims
+        ) if e.distinctive_dims else ""
+        return {
+            "label": e.label,
+            "scores": scores_view,
+            "composite": e.cell.composite,
+            "distinctive": distinctive_zh,
+            "costs": _cell_costs_summary(e.cell),
+        }
+
+    return Template(_PARETO_TEMPLATE).render(
+        dims=dims_meta,
+        front=[_entry_view(e) for e in report.front],
+        dominated=[
+            {
+                "label": e.label,
+                "dominated_by": "、".join(e.dominated_by[:3])
+                + (f" 等 {len(e.dominated_by)} 个" if len(e.dominated_by) > 3 else ""),
+                "composite": e.cell.composite,
+            }
+            for e in report.dominated
+        ],
+        total=report.size,
+        dimensions_explainer=explain_dimensions,
     )

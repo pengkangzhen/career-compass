@@ -34,6 +34,8 @@ __all__ = [
     "load_applications", "save_applications",
     "SavedJobStatus", "SavedJob", "SavedJobsFile",
     "load_saved_jobs", "save_saved_jobs",
+    "MatrixFeedbackAction", "MatrixFeedbackFile",
+    "load_matrix_feedback", "save_matrix_feedback",
 ]
 
 # 雇主性质轴 ID（与 data/employer_types.yaml 一致）
@@ -581,7 +583,6 @@ class ScoredPath(BaseModel):
 
 class Opportunity(ScoredPath):
     direction: str
-    synergizes_with: list[str] = Field(default_factory=list)  # 与另一层方向的协同
     # Phase 2 可选字段（Schema 2.0，向后兼容）
     industry: Optional[str] = None
     value_chain_node: Optional[str] = None
@@ -636,20 +637,18 @@ class OpportunityMatrix(BaseModel):
     generated_on: date
     unified_theme: str = ""
     shared_assets: list[str] = Field(default_factory=list)
-    synergy_notes: str = ""
     # Schema 2.2 正交矩阵
     capability_axes: list[CapabilityAxis] = Field(default_factory=list)
     employer_axes: list[EmployerAxis] = Field(default_factory=list)
     cross_matrix: list[MatrixCell] = Field(default_factory=list)
     # Schema 2.1 legacy（与 cross_matrix 可并存；primary 可由最佳 cell 同步）
     primary: list[Opportunity] = Field(default_factory=list)
-    side: list[Opportunity] = Field(default_factory=list)
     directions: list[Opportunity] = Field(default_factory=list)  # 旧字段，加载时迁移到 primary
 
     _RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
 
     def model_post_init(self, __context: object) -> None:
-        if self.directions and not self.primary and not self.side:
+        if self.directions and not self.primary:
             object.__setattr__(self, "primary", list(self.directions))
 
     def uses_orthogonal_matrix(self) -> bool:
@@ -743,15 +742,12 @@ class OpportunityMatrix(BaseModel):
             return self._ranked(self.synthesized_primary(include_blocked=include_blocked))
         return []
 
-    def ranked_side(self) -> list[Opportunity]:
-        return self._ranked(self.side)
-
     def ranked(self) -> list[Opportunity]:
-        """向后兼容：默认返回主业排序列表。"""
+        """向后兼容：默认返回排序列表。"""
         return self.ranked_primary()
 
     def all_directions(self) -> list[Opportunity]:
-        return list(self.ranked_primary()) + list(self.side)
+        return list(self.ranked_primary())
 
 
 # ---------- 宏观行业池（用户调研）----------
@@ -1073,3 +1069,39 @@ def save_saved_jobs(path: Path, data: SavedJobsFile) -> None:
         yaml.safe_dump(data.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
+
+
+# ---------- 矩阵反馈（用户对机会矩阵的 remove / reorder / reset 操作）----------
+
+class MatrixFeedbackAction(BaseModel):
+    """用户在矩阵 UI 上的一次操作。
+
+    action:
+      - "remove": 用户隐藏某条 direction
+      - "reorder": 用户拖拽重排，details.from_rank/to_rank 记录位移
+      - "reset": 用户点击「还原」，清空全部历史（保留为终结标记）
+      - "note": 用户给某条 direction 加备注，details.text 存文本（最新一条覆盖旧）
+    """
+    action: str                              # "remove" | "reorder" | "reset" | "note"
+    direction: str = ""                      # Opportunity.direction（reset 时可为空）
+    timestamp: str                           # ISO 字符串；UI/Agent 都按字符串处理
+    details: dict = Field(default_factory=dict)
+
+
+class MatrixFeedbackFile(BaseModel):
+    updated_on: Optional[date] = None
+    actions: list[MatrixFeedbackAction] = Field(default_factory=list)
+
+
+def load_matrix_feedback(path: Path) -> MatrixFeedbackFile:
+    if not path.exists():
+        return MatrixFeedbackFile()
+    return MatrixFeedbackFile.model_validate(_load_yaml(path))
+
+
+def save_matrix_feedback(path: Path, data: MatrixFeedbackFile) -> None:
+    """Atomic write: dump to .tmp then rename."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    payload = yaml.safe_dump(data.model_dump(mode="json"), allow_unicode=True, sort_keys=False)
+    tmp.write_text(payload, encoding="utf-8")
+    tmp.replace(path)

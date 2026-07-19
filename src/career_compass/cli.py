@@ -15,6 +15,7 @@
   career-compass render-execution [--stdout] 渲染求职执行包 → data/execution_pack.md
   career-compass track add|list|update|funnel  投递追踪
   career-compass replan [--write]      反馈闭环 → 修订建议 / opportunities.revised.yaml
+  career-compass pareto [--dims ...]   Pareto 前沿视图（多目标决策层，不替代字母档）
   career-compass jd-analyze <file>     JD 技能聚类 vs 画像缺口
   career-compass job add|list|show|analyze|remove  感兴趣岗位库（收藏 JD）
 
@@ -527,6 +528,40 @@ def cmd_replan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pareto(args: argparse.Namespace) -> int:
+    """渲染 Pareto 前沿视图（多目标决策层，不替代字母档）。"""
+    from .pareto import DEFAULT_DIMENSIONS
+    from .render import render_pareto_view
+
+    yaml_path, err = _ensure_opportunities_yaml()
+    if err or yaml_path is None:
+        print(f"❌ {err or '无法生成 opportunities.yaml'}")
+        return 1
+
+    dims = tuple(d.strip() for d in args.dims.split(",") if d.strip()) if args.dims else None
+    if dims:
+        invalid = [d for d in dims if d not in DEFAULT_DIMENSIONS]
+        if invalid:
+            print(f"❌ 未知维度: {invalid}")
+            print(f"   可选: {', '.join(DEFAULT_DIMENSIONS)}")
+            return 1
+
+    out = render_pareto_view(
+        yaml_path,
+        dimensions=dims,
+        include_blocked=args.include_blocked,
+    )
+    if args.stdout:
+        print(out)
+        return 0
+
+    out_path = DATA / "pareto.md"
+    out_path.write_text(out, encoding="utf-8")
+    print(f"✅ Pareto 前沿视图已写入 {out_path}")
+    print("   建议与 opportunities.md 并列查看：字母档做粗筛，前沿视图做最终选择。")
+    return 0
+
+
 def cmd_jd_analyze(args: argparse.Namespace) -> int:
     if not PROFILE.exists():
         print(f"❌ 缺少 {PROFILE}")
@@ -744,6 +779,24 @@ def main() -> int:
     rp2 = sub.add_parser("replan", help="基于投递反馈修订机会矩阵")
     rp2.add_argument("--write", action="store_true", help="写入 opportunities.revised.yaml")
     rp2.set_defaults(func=cmd_replan)
+
+    pa = sub.add_parser("pareto", help="渲染 Pareto 前沿视图（多目标决策层）")
+    pa.add_argument(
+        "--dims",
+        default="",
+        help="自定义维度子集，逗号分隔。例如 fit,match,wind",
+    )
+    pa.add_argument(
+        "--include-blocked",
+        action="store_true",
+        help="纳入 eligibility=fail/blocked 的 cell（默认排除）",
+    )
+    pa.add_argument(
+        "--stdout",
+        action="store_true",
+        help="输出到 stdout 而非 data/pareto.md",
+    )
+    pa.set_defaults(func=cmd_pareto)
 
     jd = sub.add_parser("jd-analyze", help="分析 JD 文件 vs 画像技能缺口")
     jd.add_argument("file", help="JD 文本文件路径")

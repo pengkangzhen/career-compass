@@ -281,26 +281,24 @@ def _load_jobs_html(data_dir: Path) -> str:
     return content_page("\n".join(parts))
 
 
-def _matrix_table_html(opps: list, *, title: str, show_synergy: bool = False) -> str:
+def _matrix_table_html(opps: list, *, title: str) -> str:
     if not opps:
         return f"<h3>{_esc(title)}</h3><p class='empty'>暂无方向</p>"
-    headers = ["#", "方向", "比较优势", "Ikigai", "顺风", "试错成本", "综合"]
-    if show_synergy:
-        headers.append("协同主业")
+    headers = ["#", "方向", "岗位名称", "组织类型", "比较优势", "Ikigai", "顺风", "试错成本", "综合"]
     rows = [f"<h3>{_esc(title)}</h3><table><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr>"]
     for i, o in enumerate(opps, 1):
-        synergy = "；".join(o.synergizes_with) if o.synergizes_with else "—"
+        top_role = o.role_families[0].role if o.role_families else "—"
         row = (
             f"<tr><td>{i}</td>"
             f"<td>{_esc(o.direction)}</td>"
+            f"<td>{_esc(top_role)}</td>"
+            f"<td>{_esc(o.employer_label or '—')}</td>"
             f"<td>{_esc(o.fit)}</td>"
             f"<td>{_esc(o.match)}</td>"
             f"<td>{_esc(o.wind)}</td>"
             f"<td>{_esc(o.risk)}</td>"
             f"<td><strong>{_esc(o.composite)}</strong></td>"
         )
-        if show_synergy:
-            row += f"<td>{_esc(synergy)}</td>"
         row += "</tr>"
         rows.append(row)
     rows.append("</table>")
@@ -326,8 +324,7 @@ def _load_matrix_html(data_dir: Path) -> str:
                 + "".join(f"<li>{_esc(a)}</li>" for a in matrix.shared_assets)
                 + "</ul>"
             )
-        parts.append(_matrix_table_html(matrix.ranked_primary(), title="主业（Primary）"))
-        parts.append(_matrix_table_html(matrix.ranked_side(), title="副业（Side）", show_synergy=True))
+        parts.append(_matrix_table_html(matrix.ranked_primary(), title="方向（Primary）"))
         parts.append("<p class='muted'>YAML 摘要 · 点击「渲染矩阵」生成完整 Markdown</p>")
         return content_page("\n".join(parts))
     return content_page(
@@ -625,6 +622,100 @@ class AppApi:
             return {"ok": True, "code": 0, "output": ""}
         args = mapping.get(cmd, [cmd])
         return _run_cli(args, self.data_dir)
+
+    # ---- 感兴趣岗位（用户在 UI 上手动新增 / 上传 JD）----
+    def jobs_add(
+        self,
+        company: str,
+        role: str,
+        description: str,
+        *,
+        location: str = "",
+        source: str = "手动添加",
+        linked_direction: str = "",
+        notes: str = "",
+    ) -> dict:
+        from career_compass.jobs import add_saved_job
+
+        path = self.data_dir / "saved_jobs.yaml"
+        try:
+            job = add_saved_job(
+                path,
+                company=company,
+                role=role,
+                description=description,
+                location=location,
+                source=source,
+                linked_direction=linked_direction,
+                notes=notes,
+            )
+        except (ValueError, TypeError) as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "job": job.model_dump(mode="json")}
+
+    def jobs_update(self, job_id: str, **fields: object) -> dict:
+        from career_compass.jobs import update_saved_job
+        from career_compass.schema import SavedJobStatus
+
+        path = self.data_dir / "saved_jobs.yaml"
+        kwargs: dict = {}
+        for key in (
+            "company", "role", "description", "location",
+            "source", "linked_direction", "notes",
+        ):
+            if key in fields and fields[key] is not None:
+                kwargs[key] = str(fields[key])
+        if "status" in fields and fields["status"] is not None:
+            raw_status = str(fields["status"]).strip()
+            try:
+                kwargs["status"] = SavedJobStatus(raw_status)
+            except ValueError:
+                return {"ok": False, "error": f"invalid status: {raw_status}"}
+        try:
+            job = update_saved_job(path, job_id, **kwargs)
+        except (ValueError, TypeError) as e:
+            return {"ok": False, "error": str(e)}
+        if job is None:
+            return {"ok": False, "error": "job not found"}
+        return {"ok": True, "job": job.model_dump(mode="json")}
+
+    def jobs_remove(self, job_id: str) -> dict:
+        from career_compass.jobs import remove_saved_job
+
+        path = self.data_dir / "saved_jobs.yaml"
+        removed = remove_saved_job(path, job_id)
+        if not removed:
+            return {"ok": False, "error": "job not found"}
+        return {"ok": True, "removed": job_id}
+
+    # ---- 矩阵反馈（用户在 UI 上 remove / reorder / reset）----
+    def matrix_feedback(self) -> dict:
+        from career_compass.matrix_feedback import list_actions
+
+        path = self.data_dir / "matrix_feedback.yaml"
+        return {"actions": [a.model_dump(mode="json") for a in list_actions(path)]}
+
+    def matrix_feedback_add(
+        self,
+        action: str,
+        direction: str = "",
+        details: dict | None = None,
+        timestamp: str | None = None,
+    ) -> dict:
+        from career_compass.matrix_feedback import append_action
+
+        path = self.data_dir / "matrix_feedback.yaml"
+        try:
+            entry = append_action(
+                path,
+                action=action,
+                direction=direction,
+                details=details,
+                timestamp=timestamp,
+            )
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "action": entry.model_dump(mode="json")}
 
 
 def main(argv: list[str] | None = None) -> None:

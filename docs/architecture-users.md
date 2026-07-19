@@ -93,15 +93,15 @@ opportunities 正交矩阵（能力轴 × 雇主轴，Top N）
   ↓
 Agent / playbook 3 审阅 narrative
   ↓
-（可选）execute：jd-analyze · job · track · replan
+（可选 · legacy）execute：jd-analyze · job · track · replan（不在主线，见 docs/phase-3.md）
 ```
 
 | 阶段 | 命令 / 表面 | 产出 |
 |------|------------|------|
 | intake | 对话 / `validate` | `profile.yaml`、`constraints.yaml`、`narrative.md` |
-| scan | `scan-plan`、`new-signal` | `signals/*.yaml` |
+| scan | `scan-plan`、`new-signal`、`job add` | `signals/*.yaml` · `saved_jobs.yaml` |
 | analyze | `brief` → `match` → `render-opportunities` | `opportunities.yaml` → `opportunities.md` ★核心交付★ |
-| execute | `render-execution`、`track`、`replan` | 行动手册、投递漏斗、修订建议 |
+| execute（legacy） | `render-execution`、`track`、`replan`、`jd-analyze` | 行动手册、投递漏斗、修订建议 —— Phase 3 遗留，不在主线 |
 
 引擎产出的是 **机器初稿**（`opportunities.draft.yaml`）；四层框架的叙事与最终取舍仍在 playbook / Agent 侧。
 
@@ -174,7 +174,7 @@ Agent / playbook 3 审阅 narrative
 | 机械 / 机器人 | robotics taxonomy + 零部件 trap | 具身 cross_track | OR 主赛道深覆盖 |
 | 应届 / 泛 CS | intake 挖 evidence；防浅层 wrapper | sectors scan 扩视野 | 大量 industry_graph |
 | 体制内意向 | public taxonomy + eligibility + gates | employer 轴排序 | 民企互联网岗位族 |
-| 已有 target JD | `job analyze` + `jd_link_rules` + track | replan 调权重 | 新行业图谱 |
+| 已有 target JD | `job analyze` + `jd_link_rules` + saved_jobs → 关联矩阵方向 | L1 探索补 JD 信号；Agent 在 L2 引用做 narrative | 新行业图谱 |
 
 ---
 
@@ -189,7 +189,7 @@ Agent / playbook 3 审阅 narrative
 | 地域 / 签证 | 已移出约束引擎 | 矩阵含海外方向；城市选择在 narrative 补 |
 | 定稿质量 | draft + 人工审 | 机器矩阵是初稿，不是最终决策 |
 
-这些上限 **不能** 单靠「再多写两个 industry」解决；更高 ROI 的方向包括：cohort 驱动扩展、矩阵「主表 + 相邻赛道」呈现、execute 闭环（track/replan）、可选 embedding 层。
+这些上限 **不能** 单靠「再多写两个 industry」解决；更高 ROI 的方向包括：cohort 驱动扩展、矩阵「主表 + 相邻赛道」呈现、可选 embedding 层。（execute 闭环 track/replan 已降级为 legacy，不再是 ROI 重点；详见 `docs/phase-3.md`。）
 
 ---
 
@@ -197,7 +197,7 @@ Agent / playbook 3 审阅 narrative
 
 1. **Cohort 驱动扩展** — 下一行业深覆盖由真实用户画像频次决定，非 sectors 列表顺序。
 2. **矩阵呈现** — 主表按 composite 取 Top N；洞察区展示 `cross_track` emerging；避免用户误以为「没进主表 = 不存在」。
-3. **闭环优于静态图谱** — `track` → `funnel` → `replan` 用投递反馈调权重，比加行业更能服务具体个人。
+3. **Agent 叙事仍是不可替代层** — 主表是初稿；`fit_rationale`、`opens_up`、`costs`、压测都在 playbook 侧。投递侧反馈闭环（track/replan）已降级为 legacy，不再作为演进重点。
 4. **Registry 一维护，全员受益** — 优先于单个新 industry。
 5. **Agent 分工不变** — 引擎 = 候选 + 证据 + 闸门；playbook = 叙事 + 取舍 + stress-test。
 
@@ -236,7 +236,7 @@ Agent / playbook 3 审阅 narrative
 
 | README 要求 | 本架构如何满足 |
 |-------------|----------------|
-| 多条方向，不坍缩为一个 | 正交矩阵：能力轴 × 雇主轴；primary + side + 交叉洞察 |
+| 多条方向，不坍缩为一个 | 正交矩阵：能力轴 × 雇主轴；交叉洞察 |
 | 每条优势有证据 | intake 闸门；无 proof 则 validate 报错 |
 | 约束是硬墙 | `passes_constraints`、`employer_preference`、`eligibility` |
 | 信号有来源和日期 | `signals/*.yaml` schema；scan playbook 要求 |

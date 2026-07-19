@@ -24,8 +24,10 @@ description: >-
 ## 用户说什么时启动
 
 - 「帮我做职业规划」「建画像」「选行业/岗位」
-- 「分析机会矩阵」「投递反馈」「replan」
+- 「分析机会矩阵」「修订矩阵」
 - 任何涉及 career-compass / 北斗星 / 求职决策的请求
+
+> 「投递反馈」「replan」相关的 legacy 工具不在主线，详见 `docs/phase-3.md`。
 
 ## 第一步：检测阶段
 
@@ -40,8 +42,8 @@ uv run career-compass status
 | intake | `playbooks/1-intake.md` | `profile.yaml` + `constraints.yaml` + `narrative.md`，`validate` 通过 |
 | scan | `playbooks/2-scan.md` | `signals/*.yaml`，带来源+日期 |
 | analyze | `playbooks/3-analyze.md` | `opportunities.yaml` → `opportunities.md` ★核心交付★ |
-| execute | `docs/phase-3.md` | track / replan / jd-analyze |
-| plan | `playbooks/4-plan.md` | 用户**选定方向后**才进入 |
+| plan（可选） | `playbooks/4-plan.md` | 用户**选定方向后**才进入 |
+| execute（legacy） | `docs/phase-3.md` | track / replan / jd-analyze —— **不在主线** |
 
 ## Intake（对话建画像）— 最重要
 

@@ -1,7 +1,7 @@
 # Schema 2.2 — 正交机会矩阵（能力 × 雇主性质）
 
 > Phase 2.2 核心演进：机会矩阵从「单一方向列表」升级为 **双正交轴 + 交叉单元**。
-> 向后兼容 Schema 2.1 的 `primary` / `side` 扁平列表。
+> 向后兼容 Schema 2.1 的 `primary` 扁平列表。
 
 ## 动机
 
@@ -48,7 +48,6 @@ cross_matrix:       # 交叉单元 = 核心评分实体
     # … 同 Opportunity 的四层评分字段 …
 
 primary: []         # 可选；空则 render 从 cross_matrix 合成最佳列视图
-side: []
 ```
 
 ## Constraints 扩展

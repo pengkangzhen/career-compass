@@ -128,6 +128,49 @@ def remove_saved_job(path: Path, job_id: str) -> bool:
     return True
 
 
+def update_saved_job(
+    path: Path,
+    job_id: str,
+    *,
+    company: str | None = None,
+    role: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    source: str | None = None,
+    linked_direction: str | None = None,
+    notes: str | None = None,
+    status: SavedJobStatus | None = None,
+) -> SavedJob | None:
+    """按 id 更新字段。None = 不动；"" = 清空可选字符串字段。"""
+    if not path.exists():
+        return None
+    data = load_saved_jobs(path)
+    target = next((j for j in data.jobs if j.id == job_id), None)
+    if target is None:
+        return None
+
+    if company is not None and company.strip():
+        target.company = company.strip()
+    if role is not None and role.strip():
+        target.role = role.strip()
+    if description is not None:
+        target.description = description
+    if location is not None:
+        target.location = location
+    if source is not None:
+        target.source = source
+    if linked_direction is not None:
+        target.linked_direction = linked_direction
+    if notes is not None:
+        target.notes = notes
+    if status is not None:
+        target.status = status
+
+    data.updated_on = date.today()
+    save_saved_jobs(path, data)
+    return target
+
+
 def _detect_barriers(
     description: str,
     profile: Profile,

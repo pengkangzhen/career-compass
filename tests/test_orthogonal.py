@@ -118,7 +118,7 @@ def test_render_orthogonal_matrix(tmp_path, example_profile, graph, taxonomy, em
     save_opportunities(path, matrix)
     out = render_opportunities(path)
     assert "机会矩阵" in out
-    assert "主业" in out
+    assert "方向总览" in out
     assert "正交矩阵" not in out
     assert "能力轴" not in out
     assert "雇主性质轴" not in out

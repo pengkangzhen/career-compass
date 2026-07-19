@@ -182,6 +182,145 @@ role_families:
       B: ["省市交通规划院"]
       C: ["港口技术中心"]
 
+  # --- 外企 / 跨国 MNC ---
+  - id: mnc_sc_optimization_engineer
+    capability_id: sc_optimization
+    employer_type_id: foreign
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "MNC 供应链优化工程师（Amazon SCOT / Google OR）"
+    typical_seniority: "博士 / 1-3年"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+      - "MIP"
+    nice_to_have:
+      - "Gurobi / CPLEX"
+      - "仿真"
+      - "英语工作能力"
+    entry_mechanism: "校招 / 实习 return offer / 内推"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["Amazon SCOT", "Microsoft Research", "Google Operations Research"]
+      B: ["Meta Supply Chain OR", "Apple SCM Analytics"]
+      C: ["中型外企 OR 团队"]
+
+  - id: mnc_applied_scientist_or_ml
+    capability_id: or_ml_hybrid
+    employer_type_id: foreign
+    industry_id: or_supply_chain
+    subsector_id: pricing_revenue
+    value_chain_node_id: or_ml_hybrid
+    role: "MNC Applied Scientist（OR+ML）"
+    typical_seniority: "博士 / 1-3年"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "强化学习"
+      - "PyTorch"
+      - "英语工作能力"
+    entry_mechanism: "校招 / 实习 return offer"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["Amazon", "Microsoft Research", "Google Research"]
+      B: ["Meta", "Apple"]
+      C: ["外企研究院"]
+
+  - id: mnc_agent_research_scientist
+    capability_id: decision_agent_or
+    employer_type_id: foreign
+    industry_id: ai_llm
+    subsector_id: llm_apps
+    value_chain_node_id: rag_agent
+    role: "MNC AI/Agent Research Scientist"
+    typical_seniority: "博士 / 1-3年"
+    required_skills:
+      - "Python"
+      - "LLM"
+      - "运筹优化"
+    nice_to_have:
+      - "LangGraph"
+      - "强化学习"
+      - "英语工作能力"
+    entry_mechanism: "校招 / 实习 return offer / MSRA 联培"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["Microsoft Research Asia (MSRA)", "Amazon Science", "Google Research"]
+      B: ["Meta AI", "Apple ML"]
+      C: ["外企 AI Lab"]
+
+  - id: mnc_pricing_marketplace_scientist
+    capability_id: dynamic_pricing
+    employer_type_id: foreign
+    industry_id: or_supply_chain
+    subsector_id: pricing_revenue
+    value_chain_node_id: dynamic_pricing
+    role: "MNC Pricing / Marketplace Scientist"
+    typical_seniority: "博士 / 3-5年"
+    required_skills:
+      - "运筹优化"
+      - "机器学习"
+      - "Python"
+    nice_to_have:
+      - "因果推断"
+      - "A/B 实验"
+      - "英语工作能力"
+    entry_mechanism: "校招 / 实习 return offer"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["Amazon Retail Pricing", "Uber", "Airbnb", "Booking"]
+      B: ["Microsoft Ads", "Meta Ads"]
+      C: ["零售外企定价"]
+
+  - id: mnc_research_staff
+    capability_id: applied_research
+    employer_type_id: foreign
+    industry_id: or_supply_chain
+    subsector_id: supply_chain_planning
+    value_chain_node_id: network_optimization
+    role: "MNC Research Staff Member"
+    typical_seniority: "博士"
+    required_skills:
+      - "运筹优化"
+      - "Python"
+    nice_to_have:
+      - "机器学习"
+      - "英语工作能力"
+      - "顶会发表"
+    entry_mechanism: "校招 / PhD internship / 联培"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["IBM Research", "Microsoft Research", "Siemens Research"]
+      B: ["Bosch Research", "Shell Science"]
+      C: ["外企研究院"]
+
+  - id: mnc_semicon_sched_engineer
+    capability_id: semi_fab_or
+    employer_type_id: foreign
+    industry_id: semicon
+    subsector_id: fab_manufacturing
+    value_chain_node_id: fab_scheduling
+    role: "MNC 半导体 Process / Scheduling Engineer"
+    typical_seniority: "博士 / 3-5年"
+    required_skills:
+      - "运筹优化"
+      - "MIP"
+      - "Python"
+    nice_to_have:
+      - "Gurobi"
+      - "仿真"
+      - "半导体工艺背景"
+      - "英语工作能力"
+    entry_mechanism: "校招 / 实习 return offer"
+    skill_transfer_default: "高"
+    typical_companies:
+      A: ["ASML", "Applied Materials", "Lam Research"]
+      B: ["Siemens EDA", "KLA", "TEL"]
+      C: ["外企半导体设备商"]
+
   # --- 公务员 ---
   - id: civil_service_transport
     capability_id: policy_admin

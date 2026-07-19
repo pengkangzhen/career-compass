@@ -29,6 +29,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        # This is a local dev / desktop server: the bundle on disk can change
+        # between launches (rebuilds, agent edits). Always make the browser
+        # revalidate so the user never gets a stale index.html that points at
+        # an old (possibly-broken) hashed JS bundle. JSON responses also write
+        # to data files (saved_jobs, matrix_feedback…) and must never be stale.
+        self.send_header("Cache-Control", "no-store, max-age=0")
         self.end_headers()
         self.wfile.write(body)
 
@@ -74,6 +80,9 @@ class _Handler(BaseHTTPRequestHandler):
             if api_path == "chat_state":
                 self._send_json(200, self.api.chat_state())
                 return
+            if api_path == "matrix_feedback":
+                self._send_json(200, self.api.matrix_feedback())
+                return
             self.send_error(404)
             return
 
@@ -113,6 +122,45 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             if api_path == "run_command":
                 self._send_json(200, self.api.run_command(str(data.get("cmd", ""))))
+                return
+            if api_path == "matrix_feedback/add":
+                self._send_json(
+                    200,
+                    self.api.matrix_feedback_add(
+                        action=str(data.get("action", "")),
+                        direction=str(data.get("direction", "") or ""),
+                        details=data.get("details") or None,
+                        timestamp=data.get("timestamp") or None,
+                    ),
+                )
+                return
+            if api_path == "jobs/add":
+                self._send_json(
+                    200,
+                    self.api.jobs_add(
+                        company=str(data.get("company", "")).strip(),
+                        role=str(data.get("role", "")).strip(),
+                        description=str(data.get("description", "")),
+                        location=str(data.get("location", "")).strip(),
+                        source=str(data.get("source", "")).strip() or "手动添加",
+                        linked_direction=str(data.get("linked_direction", "")).strip(),
+                        notes=str(data.get("notes", "")).strip(),
+                    ),
+                )
+                return
+            if api_path == "jobs/update":
+                job_id = str(data.get("id", "")).strip()
+                if not job_id:
+                    self._send_json(200, {"ok": False, "error": "missing id"})
+                    return
+                self._send_json(200, self.api.jobs_update(job_id, **data))
+                return
+            if api_path == "jobs/remove":
+                job_id = str(data.get("id", "")).strip()
+                if not job_id:
+                    self._send_json(200, {"ok": False, "error": "missing id"})
+                    return
+                self._send_json(200, self.api.jobs_remove(job_id))
                 return
         except Exception as e:
             self._send_json(500, {"ok": False, "error": str(e)})

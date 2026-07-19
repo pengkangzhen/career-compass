@@ -92,24 +92,77 @@ export type TrendsView = {
   }[];
 };
 
+export type SavedJobItem = {
+  id?: string;
+  company: string;
+  role: string;
+  location: string;
+  source?: string;
+  saved_on: string;
+  status: string;
+  linked_direction?: string;
+  notes?: string;
+  description?: string;
+  description_preview?: string;
+  match?: {
+    summary: string;
+    linked_direction?: string;
+    barriers: string[];
+  };
+};
+
 export type JobsView = {
   empty: boolean;
   message?: string;
   hint?: string;
   count?: number;
-  jobs: {
-    company: string;
-    role: string;
-    location: string;
-    saved_on: string;
-    status: string;
-    notes?: string;
-    match?: {
-      summary: string;
-      linked_direction?: string;
-      barriers: string[];
-    };
-  }[];
+  jobs: SavedJobItem[];
+};
+
+export type JobsAddPayload = {
+  company: string;
+  role: string;
+  description: string;
+  location?: string;
+  source?: string;
+  linked_direction?: string;
+  notes?: string;
+};
+
+export type JobsAddResponse = {
+  ok: boolean;
+  job?: SavedJobItem;
+  error?: string;
+};
+
+export type JobsUpdatePayload = {
+  company?: string;
+  role?: string;
+  description?: string;
+  location?: string;
+  source?: string;
+  linked_direction?: string;
+  notes?: string;
+  status?: SavedJobStatus;
+};
+
+export type SavedJobStatus =
+  | "interested"
+  | "researching"
+  | "ready"
+  | "applied"
+  | "archived";
+
+export type JobsUpdateResponse = {
+  ok: boolean;
+  job?: SavedJobItem;
+  error?: string;
+};
+
+export type JobsRemoveResponse = {
+  ok: boolean;
+  removed?: string;
+  error?: string;
 };
 
 export type MatrixView = {
@@ -118,10 +171,26 @@ export type MatrixView = {
   hint?: string;
   format?: "markdown" | "yaml_summary";
   content?: string;
+  has_markdown?: boolean;
   unified_theme?: string;
   shared_assets?: string[];
-  primary?: Record<string, string | number>[];
-  side?: Record<string, string | number>[];
+  primary?: MatrixRow[];
+  hidden_directions?: string[];
+  order_overrides?: string[];
+  notes?: Record<string, string>;
+};
+
+export type MatrixRow = Record<string, string | number>;
+
+export type MatrixFeedbackAction = {
+  action: "remove" | "reorder" | "reset" | "note";
+  direction?: string;
+  timestamp: string;
+  details?: Record<string, unknown>;
+};
+
+export type MatrixFeedbackResponse = {
+  actions: MatrixFeedbackAction[];
 };
 
 export type ExecutionView = {
@@ -179,6 +248,33 @@ export type CommandResult = {
   output: string;
 };
 
+export type User = {
+  id: string;
+  email: string;
+  is_active: boolean;
+};
+
+export type AuthTokens = {
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+};
+
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export type RegisterPayload = {
+  email: string;
+  password: string;
+};
+
+export type HealthResponse = {
+  ok: boolean;
+  db: "up" | "down";
+};
+
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
@@ -186,6 +282,83 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     body: body ? JSON.stringify(body) : "{}",
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  detail?: unknown;
+  constructor(status: number, message: string, code?: string, detail?: unknown) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+async function readErrorPayload(res: Response): Promise<{
+  code?: string;
+  message?: string;
+  detail?: unknown;
+}> {
+  try {
+    const data = (await res.json()) as {
+      code?: string;
+      error?: string;
+      message?: string;
+      detail?: unknown;
+    };
+    if (typeof data.code === "string") return { code: data.code, detail: data.detail };
+    if (typeof data.error === "string") return { message: data.error, detail: data.detail };
+    if (typeof data.message === "string") return { message: data.message, detail: data.detail };
+    if (typeof data.detail === "string") return { message: data.detail, detail: data.detail };
+    return { detail: data.detail };
+  } catch {
+    return {};
+  }
+}
+
+async function authPost<T>(
+  path: string,
+  body?: unknown,
+  tokens?: { accessToken?: string },
+): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (tokens?.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`;
+  const res = await fetch(path, {
+    method: "POST",
+    headers,
+    body: body ? JSON.stringify(body) : "{}",
+  });
+  if (!res.ok) {
+    const info = await readErrorPayload(res);
+    throw new ApiError(
+      res.status,
+      info.message ?? `HTTP ${res.status}`,
+      info.code,
+      info.detail,
+    );
+  }
+  return res.json() as Promise<T>;
+}
+
+async function authGet<T>(
+  path: string,
+  tokens?: { accessToken?: string },
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`;
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    const info = await readErrorPayload(res);
+    throw new ApiError(
+      res.status,
+      info.message ?? `HTTP ${res.status}`,
+      info.code,
+      info.detail,
+    );
+  }
   return res.json() as Promise<T>;
 }
 
@@ -199,6 +372,36 @@ export const api = {
     ),
   chatReset: () => post<{ ok: boolean }>("/api/chat_reset"),
   runCommand: (cmd: string) => post<CommandResult>("/api/run_command", { cmd }),
+  matrixFeedback: () =>
+    fetch("/api/matrix_feedback").then((r) => r.json()) as Promise<MatrixFeedbackResponse>,
+  matrixFeedbackAdd: (
+    action: MatrixFeedbackAction["action"],
+    direction?: string,
+    details?: Record<string, unknown>,
+  ) =>
+    post<{ ok: boolean; action?: MatrixFeedbackAction; error?: string }>(
+      "/api/matrix_feedback/add",
+      { action, direction, details },
+    ),
+  jobsAdd: (payload: JobsAddPayload) =>
+    post<JobsAddResponse>("/api/jobs/add", payload),
+  jobsUpdate: (id: string, payload: JobsUpdatePayload) =>
+    post<JobsUpdateResponse>("/api/jobs/update", { id, ...payload }),
+  jobsRemove: (id: string) =>
+    post<JobsRemoveResponse>("/api/jobs/remove", { id }),
+  authRegister: (payload: RegisterPayload) =>
+    authPost<{ id: string; email: string }>("/api/auth/register", payload),
+  authLogin: (payload: LoginPayload) =>
+    authPost<AuthTokens>("/api/auth/login", payload),
+  authRefresh: (refreshToken: string) =>
+    authPost<{ access_token: string; token_type: "bearer" }>("/api/auth/refresh", {
+      refresh_token: refreshToken,
+    }),
+  authLogout: (tokens?: { accessToken?: string }) =>
+    authPost<{ ok: boolean }>("/api/auth/logout", undefined, tokens),
+  authMe: (tokens?: { accessToken?: string }) =>
+    authGet<User>("/api/auth/me", tokens),
+  health: () => authGet<HealthResponse>("/api/health"),
 };
 
 /** 核心三步 — GUI 主导航 */

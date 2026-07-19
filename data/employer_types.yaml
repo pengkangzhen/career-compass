@@ -21,13 +21,13 @@ employer_types:
     typical_orgs: ["字节", "阿里", "顺丰科技", "AI 创业公司"]
 
   - id: foreign
-    name: "外资 / 合资"
+    name: "外企 / 跨国 MNC"
     stability: medium
     ceiling: high
-    value_is_in: "规范流程、国际化视野、部分岗位薪酬上限高"
-    trap: "本土化收缩、headcount 冻结、螺丝钉化"
-    entry_paths: ["社会招聘", "校园招聘", "猎头"]
-    typical_orgs: ["马士基", "DHL", "麦肯锡 OR 团队", "跨国 pharma"]
+    value_is_in: "前沿研究、国际化视野、技术深度、资深工程师培养体系"
+    trap: "晋升金字塔陡、回流成本、部分岗位需海外 relocation"
+    entry_paths: ["校园招聘", "实习 return offer", "社会招聘", "猎头"]
+    typical_orgs: ["Amazon", "Microsoft Research", "Google", "ASML", "Uber", "IBM Research"]
 
   - id: central_soe
     name: "央企"

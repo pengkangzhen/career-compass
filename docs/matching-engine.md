@@ -59,7 +59,7 @@ uv run career-compass render-pack --stdout
 brief → match --write-draft → Agent 审阅/补 rationale → opportunities.yaml → render-opportunities
 ```
 
-（可选）`render-pack` 汇总视图 · `render-execution` 行动手册 · `track`/`replan` 长期修正
+（可选 · legacy）`render-pack` 汇总视图 · `render-execution` 行动手册 · `track`/`replan` 长期修正 —— Phase 3 遗留 CLI，不在主线（见 `docs/phase-3.md`）
 
 Draft 是**机器初稿**；四层框架的叙事（fit_rationale、opens_up、costs）仍需 Agent 按 playbook 3 补全或修订。
 

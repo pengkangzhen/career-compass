@@ -48,16 +48,11 @@ export function JourneyNav({ journey, activeStep, onSelect, canOpen }: Props) {
               title={!access.ok ? access.reason : step.subtitle}
               onClick={() => onSelect(id)}
             >
-              <span className={numCls}>{i + 1}</span>
+              <span className={numCls}>{step.done ? "✓" : i + 1}</span>
               <span className="whitespace-nowrap text-xs font-medium leading-tight">{step.title}</span>
             </button>
           );
         })}
-        {coreDone && (
-          <span className="ml-1 shrink-0 rounded-full bg-[var(--color-ok)]/15 px-2 py-1 text-[10px] font-semibold text-[var(--color-ok)] md:px-3 md:text-xs">
-            ✓ 矩阵就绪
-          </span>
-        )}
       </div>
       <p
         className={`mt-2 px-1 text-xs ${coreDone ? "text-[var(--color-ok)]" : "text-[var(--color-muted)]"}`}

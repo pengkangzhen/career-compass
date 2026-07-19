@@ -166,15 +166,14 @@ def apply_replan_suggestions(
     from .schema import SkillGap
 
     primary = [o.model_copy(deep=True) for o in matrix.primary]
-    side = [o.model_copy(deep=True) for o in matrix.side]
     cross = [c.model_copy(deep=True) for c in matrix.cross_matrix]
-    layer_lists = [primary, side]
+    primary_lists = [primary]
     cell_lists = [cross]
 
     for sug in suggestions:
         if sug.kind != "downgrade_direction":
             continue
-        for directions in layer_lists:
+        for directions in primary_lists:
             for opp in directions:
                 if _direction_key(sug.target, opp.direction):
                     opp.composite = _composite_downgrade(opp.composite)
@@ -189,7 +188,7 @@ def apply_replan_suggestions(
     for sug in suggestions:
         if sug.kind != "add_skill_gap":
             continue
-        for directions in layer_lists:
+        for directions in primary_lists:
             for opp in directions:
                 existing = {g.skill for g in opp.skill_gaps}
                 if sug.target not in existing:
@@ -216,12 +215,10 @@ def apply_replan_suggestions(
         generated_on=date.today(),
         unified_theme=matrix.unified_theme,
         shared_assets=list(matrix.shared_assets),
-        synergy_notes=matrix.synergy_notes,
         capability_axes=list(matrix.capability_axes),
         employer_axes=list(matrix.employer_axes),
         cross_matrix=cross,
         primary=primary,
-        side=side,
     )
 
 
