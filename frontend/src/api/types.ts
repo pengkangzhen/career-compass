@@ -1,3 +1,5 @@
+import { fetchWithAuth } from "../auth/fetchWithAuth";
+
 export type JourneyStep = {
   id: string;
   title: string;
@@ -276,7 +278,7 @@ export type HealthResponse = {
 };
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetchWithAuth(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : "{}",
@@ -320,7 +322,7 @@ async function readErrorPayload(res: Response): Promise<{
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetchWithAuth(path);
   if (!res.ok) {
     const info = await readErrorPayload(res);
     throw new ApiError(

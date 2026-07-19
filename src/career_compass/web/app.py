@@ -14,6 +14,7 @@ from typing import Callable
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from career_compass.web.routers.data import router as data_router
 from career_compass.web.routers.health import router as health_router
 from career_compass.web.routers.users import router as users_router
 
@@ -38,6 +39,7 @@ def create_app(lifespan: Lifespan | None = None) -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(users_router)
+    app.include_router(data_router)
 
     return app
 

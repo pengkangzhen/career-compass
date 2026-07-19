@@ -541,9 +541,12 @@ window.addEventListener('pywebviewready', async () => {
 
 
 class AppApi:
-    def __init__(self) -> None:
-        default = Path(os.getenv("CC_DATA", _REPO_ROOT / "data"))
-        self.data_dir = default.resolve()
+    def __init__(self, data_dir: Path | None = None) -> None:
+        # Single-user desktop mode: resolve from CC_DATA / repo default.
+        # SaaS mode: the caller passes a per-user data_dir (see web.user_data).
+        if data_dir is None:
+            data_dir = Path(os.getenv("CC_DATA", _REPO_ROOT / "data"))
+        self.data_dir = data_dir.resolve()
         self._intake: IntakeEngine | None = None
 
     def _intake_engine(self) -> IntakeEngine:
