@@ -7,7 +7,8 @@ services:
     name: beidou-api
     runtime: python
     plan: free  # 个人项目足够；用户量上来后升级 starter
-    buildCommand: pip install -e ".[web,gui]" && pip install "psycopg[binary]" alembic
+    # API-only: frontend lives on Vercel; [gui] (pywebview) and SPA dist not needed.
+    buildCommand: pip install -e ".[web]" && pip install "psycopg[binary]" alembic
     startCommand: alembic upgrade head && uvicorn career_compass.web.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     autoDeploy: true
