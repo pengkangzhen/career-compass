@@ -4,7 +4,7 @@
 
 One-liner: Beidou is an AI career **direction-choice** engine for people who feel stuck — not a resume bot, but a navigator before you apply.
 
-> A **pre-application** career decision engine. Builds on two foundational layers — **profile × industry structure** — then layers **trend signals (headwind/tailwind)** and **competition intensity** as evaluation metrics, to return **ranked direction options with rationale** — answering *which industry, which role, why you, and whether the timing is right*. **That's where Beidou stops**; resume optimization, apply strategy, and interview prep are left to downstream accelerator tools.
+> A **pre-application** career decision engine. Builds on two foundational layers — **profile × industry structure** — then evaluates along two dimensions — **industry trend** (tailwind/headwind, competition intensity) and **trial cost** (how reversible a wrong pick is) — to return **ranked direction options with rationale** — answering *which industry, which role, why you, and whether the timing is right*. **That's where Beidou stops**; resume optimization, apply strategy, and interview prep are left to downstream accelerator tools.
 
 Repo codename: `career-compass`. Product name in Chinese: **北斗星** (Big Dipper — navigation metaphor).
 
@@ -40,7 +40,7 @@ Most career tools focus on **tactical** steps around applying. Beidou targets th
 |------------|-----------------|--------|
 | **Symptoms, not cause** | Polish resume, mock interviews — direction assumed fixed | **Career navigator**: fit × track first, then how to enter |
 | **No long-term view** | One-shot generation — no versioning, no iteration | **Long-term companion**: versioned profile/strategy; rescan stale signals |
-| **Missing macro lens** | Match to open JDs only — industry structure absent | **Macro lens**: profile × industry structure as foundation; trends/competition layered as evaluation metrics (deep/shallow value chain, competition density feed into `composite`) |
+| **Missing macro lens** | Match to open JDs only — industry structure absent | **Macro lens**: profile × industry structure as foundation; **industry trend** (tailwind/headwind, competition density, deep/shallow value chain) and **trial cost** feed into `composite` as evaluation dimensions |
 | **Employer-aligned** | Push own listings — platform/employer interests first | **Direction, not listings** — no commissions, no employer KPIs; ranked options + rationale, user decides |
 
 ### Where Beidou stands
