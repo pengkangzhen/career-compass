@@ -8,14 +8,23 @@ type Props = {
 
 export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
   const [state, setState] = useState<ChatState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
-    const s = await api.chatState();
-    setState(s);
+    try {
+      const s = await api.chatState();
+      setState(s);
+      setLoadError(null);
+    } catch (e) {
+      // SaaS 迁移期:/api/chat_state 在新后端尚未实现 (M2 范围)。
+      // 不能让组件渲染时崩溃 —— 记录到 loadError 让 UI 降级提示。
+      console.error("[ChatPanel] load chat_state failed:", e);
+      setLoadError(e instanceof Error ? e.message : "未知错误");
+    }
   };
 
   useEffect(() => {
@@ -60,8 +69,19 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
 
   if (!state) {
     return (
-      <div className="flex h-full items-center justify-center text-[var(--color-muted)]">
-        加载对话…
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+        {loadError ? (
+          <>
+            <p className="text-sm font-semibold text-[var(--color-warn)]">
+              对话加载失败
+            </p>
+            <p className="max-w-md text-xs text-[var(--color-muted)]">
+              {loadError}（SaaS 化迁移中，M2 里程碑会实现此接口）
+            </p>
+          </>
+        ) : (
+          <p className="text-[var(--color-muted)]">加载对话…</p>
+        )}
       </div>
     );
   }

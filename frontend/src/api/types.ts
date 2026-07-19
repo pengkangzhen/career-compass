@@ -319,6 +319,20 @@ async function readErrorPayload(res: Response): Promise<{
   }
 }
 
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    const info = await readErrorPayload(res);
+    throw new ApiError(
+      res.status,
+      info.message ?? `HTTP ${res.status}`,
+      info.code,
+      info.detail,
+    );
+  }
+  return res.json() as Promise<T>;
+}
+
 async function authPost<T>(
   path: string,
   body?: unknown,
@@ -363,8 +377,8 @@ async function authGet<T>(
 }
 
 export const api = {
-  loadAll: () => fetch("/api/load_all").then((r) => r.json()) as Promise<AppData>,
-  chatState: () => fetch("/api/chat_state").then((r) => r.json()) as Promise<ChatState>,
+  loadAll: () => getJson<AppData>("/api/load_all"),
+  chatState: () => getJson<ChatState>("/api/chat_state"),
   chatSend: (message: string) =>
     post<ChatState & { reply: string; files_updated?: string[]; just_completed?: boolean }>(
       "/api/chat_send",
@@ -372,8 +386,7 @@ export const api = {
     ),
   chatReset: () => post<{ ok: boolean }>("/api/chat_reset"),
   runCommand: (cmd: string) => post<CommandResult>("/api/run_command", { cmd }),
-  matrixFeedback: () =>
-    fetch("/api/matrix_feedback").then((r) => r.json()) as Promise<MatrixFeedbackResponse>,
+  matrixFeedback: () => getJson<MatrixFeedbackResponse>("/api/matrix_feedback"),
   matrixFeedbackAdd: (
     action: MatrixFeedbackAction["action"],
     direction?: string,

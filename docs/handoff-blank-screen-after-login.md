@@ -1,6 +1,6 @@
 # 交接文档 · 登录后白屏 Bug
 
-> 状态: **未解决** · 等待接手  
+> 状态: **✅ 已解决** · 2026-07-19 修复（根因与修复见 [§0](#0--已解决2026-07-19)）  
 > 严重度: **P0**（SaaS 化 M1 里程碑验收被阻塞）  
 > 创建时间: 2026-07-19 13:20 (UTC+8)  
 > 项目: career-compass / 北斗星  
@@ -11,6 +11,44 @@
 这是一个 React 19 SPA 在 Vite dev server 下偶发的「整个 React 根 unmount」白屏 bug。我已经定位到根因的边界（不是组件错误，是 Vite HMR 状态污染），但**没能在会话内彻底修复**。本文件列出所有已做的调查 + 证据 + 复现步骤 + 下一步建议。
 
 **请先完整读完本文件再动手**，避免重复劳动。文档生成时所在分支为默认工作分支（`git status` 自查）。
+
+> ⚠️ 以下 §1–§9 是上一手 AI 的交接调查记录，保留作参考。它的根因假设 A/B/C/D 经验证**均非真正根因** —— 真正根因与修复见下面的 §0，不必再追那些方向。
+
+---
+
+## 0. ✅ 已解决（2026-07-19）
+
+### 真正根因（前端 API 层，与 Vite HMR / StrictMode / AuthProvider 无关）
+
+SaaS 后端只注册了 `/api/auth/*` 和 `/api/health`（见 [src/career_compass/web/app.py](src/career_compass/web/app.py#L39-L40)），**没有 `/api/load_all`**。curl 确认：
+
+```
+$ curl -s -w '\nHTTP:%{http_code}' http://127.0.0.1:8000/api/load_all
+{"detail":"Not Found"}
+HTTP:404
+```
+
+但旧版 `api.loadAll` 写成 `fetch(url).then(r => r.json())` —— **没检查 `r.ok`**，于是 404 响应被当成成功的 `AppData` 静默 `setData({"detail":"Not Found"})`。`MainApp` 重新渲染时绕过 `!data` 和 `loadError && !data` 两个守卫，在 [MainApp.tsx:134](frontend/src/MainApp.tsx#L134) `data.journey.steps` 上抛 `TypeError`（`data.journey` 是 `undefined`）。React 19 在渲染期抛错且**无祖先 ErrorBoundary** 时的默认行为是**卸载整个 root** —— 这就是 `<div id="root">` 全空、且 `window.onerror` 抓不到错误的真正原因（React 走 `console.error`，不触发全局 error 事件）。`api.chatState` / `api.matrixFeedback` 有同样的裸 `.then(r => r.json())` 缺陷。
+
+### 修复（4 处）
+
+| 文件 | 改动 |
+|---|---|
+| [frontend/src/api/types.ts](frontend/src/api/types.ts) | 新增 `getJson()` helper 检查 `r.ok`、失败抛 `ApiError`；`loadAll` / `chatState` / `matrixFeedback` 三个原本裸 `.then(r => r.json())` 的 GET 方法改用它 —— 404 现在会正确抛错，`MainApp.refresh` 的 catch 触发，显示「数据层暂未就绪」而非白屏 |
+| [frontend/src/components/ChatPanel.tsx](frontend/src/components/ChatPanel.tsx) | `load()` 加 try/catch + `loadError` 状态；`chat_state` 未实现时降级提示而非崩溃 |
+| [frontend/src/ErrorBoundary.tsx](frontend/src/ErrorBoundary.tsx) | 新建。渲染错误兜底页，防止未来任何渲染崩溃再导致全树白屏（也就是本 handoff §6 步骤 2） |
+| [frontend/src/main.tsx](frontend/src/main.tsx) | 在 `<StrictMode>` 外包一层 `<ErrorBoundary>` |
+
+### 验证
+
+- `npm run build` 通过（tsc + vite，306 模块，无错）
+- curl 坐实根因：`/api/load_all` → `HTTP 404 {"detail":"Not Found"}`
+- 离线逻辑对照：旧 `loadAll` 对 404 静默返回 `{detail:...}`（`journey` 为 `undefined`，后续 `.steps` 必抛 `TypeError`）；新 `getJson` 抛 `HTTP 404`
+- 浏览器端到端（**用户实测确认 ✅**）：硬刷新 5173 后登录，页面显示「数据层暂未就绪」橙色提示，`<div id="root">` 正常挂载，白屏消除。ErrorBoundary 未触发（符合预期 —— 走的是 `MainApp` 的 `loadError` 正常降级分支，非渲染崩溃）
+
+### 后续（非本 bug 范围，记录给 M2）
+
+真正修好体验需要实现 `/api/load_all` / `/api/chat_state` 等数据层接口（M2/M3 里程碑）。在那之前，登录后页面会停在「数据层暂未就绪」提示 —— 这是预期行为，不再是白屏。
 
 ---
 
