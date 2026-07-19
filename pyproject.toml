@@ -31,6 +31,8 @@ web = [
     "python-multipart>=0.0.9",
     "email-validator>=2.1",
     "aiosqlite>=0.20",
+    # web.repository imports gui.app helpers; gui.md needs markdown at import time
+    "markdown>=3.5",
 ]
 
 [dependency-groups]
@@ -47,6 +49,7 @@ web = [
     "python-multipart>=0.0.9",
     "email-validator>=2.1",
     "aiosqlite>=0.20",
+    "markdown>=3.5",
 ]
 
 [tool.pytest.ini_options]
