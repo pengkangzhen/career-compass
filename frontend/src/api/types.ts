@@ -476,10 +476,17 @@ export function stepTitle(steps: JourneyStep[], id: CoreStepId): string {
   return steps.find((s) => s.id === id)?.title ?? id;
 }
 
-export function canOpenStep(journey: Journey, step: CoreStepId): { ok: boolean; reason?: string } {
+/** 步骤可随时进入；画像未完成时仅返回软提示，不再硬拦。 */
+export function canOpenStep(
+  journey: Journey,
+  step: CoreStepId,
+): { ok: boolean; hint?: string } {
   if (step === "know_self") return { ok: true };
   if (!journey.know_self_complete) {
-    return { ok: false, reason: "请先完成「认识自己」" };
+    return {
+      ok: true,
+      hint: "「认识自己」尚未完成，探索结果可能不够准，可随时回来补全",
+    };
   }
   return { ok: true };
 }

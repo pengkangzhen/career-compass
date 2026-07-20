@@ -501,9 +501,9 @@ HTML_SHELL = """<!DOCTYPE html>
 <nav>
   <button id="tab-chat" class="active" onclick="showTab('chat')">对话</button>
   <button id="tab-profile" onclick="showTab('profile')">我的画像</button>
-  <button id="tab-trends" class="locked" onclick="showTabSafe('trends')">行业趋势</button>
-  <button id="tab-jobs" class="locked" onclick="showTabSafe('jobs')">岗位收藏</button>
-  <button id="tab-matrix" class="locked" onclick="showTabSafe('matrix')">机会矩阵</button>
+  <button id="tab-trends" onclick="showTabSafe('trends')">行业趋势</button>
+  <button id="tab-jobs" onclick="showTabSafe('jobs')">岗位收藏</button>
+  <button id="tab-matrix" onclick="showTabSafe('matrix')">机会矩阵</button>
 </nav>
 <div class="toolbar" id="toolbar">
   <button onclick="run('chat-reset')">重置对话</button>

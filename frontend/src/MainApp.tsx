@@ -66,13 +66,11 @@ export function MainApp() {
   const selectStep = (id: CoreStepId) => {
     if (!data) return;
     const access = canOpenStep(data.journey, id);
-    if (!access.ok) {
-      showToast(access.reason ?? "暂不可进入");
-      return;
-    }
+    const leavingKnowSelf = step === "know_self" && id !== "know_self";
     setStep(id);
     const meta = JOURNEY_STEPS.find((s) => s.id === id);
     if (meta?.sub?.length) setSubView(meta.sub[0].id);
+    if (leavingKnowSelf && access.hint) showToast(access.hint);
   };
 
   const runCmd = async (cmd: string) => {
@@ -194,6 +192,21 @@ export function MainApp() {
 
       <main className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
         <div className="mx-auto max-w-6xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 p-4 md:p-6 backdrop-blur-sm">
+          {step !== "know_self" && !data.journey.know_self_complete && (
+            <div className="mb-4 rounded-lg border border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 px-3 py-2 text-xs text-[var(--color-warn)]">
+              「认识自己」尚未完成，当前探索/决策可能不够准。
+              <button
+                type="button"
+                className="ml-2 underline hover:no-underline"
+                onClick={() => {
+                  setStep("know_self");
+                  setSubView("chat");
+                }}
+              >
+                回去补全
+              </button>
+            </div>
+          )}
           {step === "know_self" && subView === "chat" && (
             <ChatPanel
               key={chatKey}

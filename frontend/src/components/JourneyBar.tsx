@@ -7,7 +7,7 @@ type Props = {
   journey: Journey;
   activeStep: CoreStepId;
   onSelect: (step: CoreStepId) => void;
-  canOpen: (step: CoreStepId) => { ok: boolean; reason?: string };
+  canOpen: (step: CoreStepId) => { ok: boolean; hint?: string };
 };
 
 export function JourneyNav({ journey, activeStep, onSelect, canOpen }: Props) {
@@ -22,10 +22,9 @@ export function JourneyNav({ journey, activeStep, onSelect, canOpen }: Props) {
           const access = canOpen(id);
           const isActive = activeStep === id;
           const cls = [
-            "flex min-w-[88px] flex-1 flex-col items-center gap-1 rounded-lg px-1 py-2 text-center transition-colors md:min-w-[100px]",
+            "flex min-w-[88px] flex-1 flex-col items-center gap-1 rounded-lg px-1 py-2 text-center transition-colors md:min-w-[100px] cursor-pointer hover:bg-white/5",
             step.done ? "text-[var(--color-ok)]" : "text-[var(--color-muted)]",
             isActive ? "bg-[var(--color-accent)]/15 ring-1 ring-[var(--color-accent)]/40" : "",
-            !access.ok ? "opacity-45" : "hover:bg-white/5 cursor-pointer",
           ]
             .filter(Boolean)
             .join(" ");
@@ -45,7 +44,7 @@ export function JourneyNav({ journey, activeStep, onSelect, canOpen }: Props) {
               key={step.id}
               type="button"
               className={cls}
-              title={!access.ok ? access.reason : step.subtitle}
+              title={access.hint ?? step.subtitle}
               onClick={() => onSelect(id)}
             >
               <span className={numCls}>{step.done ? "✓" : i + 1}</span>
