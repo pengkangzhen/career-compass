@@ -46,7 +46,7 @@ export function LoginPage() {
   };
 
   return (
-    <AuthShell title="登录北斗星" subtitle="登录后继续你的职业规划">
+    <AuthShell title="登录北斗星" subtitle="你的AI职业规划决策引擎">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
         <Field
           label="邮箱"
@@ -100,14 +100,10 @@ export function AuthShell({
     <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 p-6 backdrop-blur-sm md:p-8">
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">
-            <span className="text-[var(--color-text)]">北斗星</span>
-            <span className="ml-2 text-sm font-normal text-[var(--color-accent-2)]">
-              Beidou
-            </span>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-text)]">
+            {title}
           </h1>
-          <p className="mt-1 text-sm text-[var(--color-text)]">{title}</p>
-          <p className="mt-0.5 text-xs text-[var(--color-muted)]">{subtitle}</p>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">{subtitle}</p>
         </div>
         {children}
       </div>
