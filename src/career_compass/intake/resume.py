@@ -14,6 +14,7 @@ empty slots, never overwrites user-edited content).
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,6 +32,10 @@ MAX_RESUME_BYTES = 5 * 1024 * 1024
 ACCEPTED_EXTS: frozenset[str] = frozenset({".pdf", ".txt", ".md", ".markdown", ".text"})
 
 _RESUME_JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+
+# 模块 logger：CloudBase 等模型 JSON following 能力参差，抽取失败时把 LLM
+# 原始返回留在日志里，方便定位是 prompt 不够硬、还是某个 provider 的特殊行为。
+_log = logging.getLogger("career_compass.intake.resume")
 
 
 class ResumeError(Exception):
@@ -104,6 +109,12 @@ def extract_text(filename: str, content: bytes) -> str:
 
 _RESUME_SYSTEM_PROMPT = """你是北斗星的简历解析助手。给定一份简历的纯文本，你的任务是把信息结构化成 ``profile.yaml`` 的 **部分字段**，供后续合并到用户画像。
 
+## ⚠️ 最关键要求（违反 = 抽取失败，画像不会更新）
+
+1. **所有结构化内容必须放进 ``extracted_profile`` 字段**。这个 key 名必须严格是 ``extracted_profile``——不能用 ``profile`` / ``result`` / ``data`` / ``resume`` 等任何别名。
+2. **``notes`` 只写一句自然语言总结**（"抽取到了什么 / 明显缺什么"）。**绝对不要**把结构化数据（学校、公司、技能等）写进 notes。系统只读 ``extracted_profile``，如果它是 ``{}`` 而内容只在 notes 里，本次抽取会被判定为失败。
+3. ``extracted_profile`` 内部字段名必须严格按下面的 schema：``current_role`` / ``education`` / ``experience`` / ``skills`` / ``strength_evidence``。不要用中文 key，不要加额外嵌套层级。
+
 ## 输出格式
 
 只输出一个 JSON 代码块，schema：
@@ -158,14 +169,41 @@ def _call_llm_for_extraction(*, llm: LLMClient, resume_text: str) -> dict[str, A
 
     match = _RESUME_JSON_BLOCK.search(raw)
     if not match:
+        # 现场留痕：某些模型会把 JSON 散落在散文里或忘了用 ```json``` 包裹
+        _log.warning(
+            "resume extract: LLM 未返回 ```json``` 代码块。raw 前 800 字符: %r",
+            raw[:800],
+        )
         raise ResumeError("LLM 未返回可解析的 JSON 块")
     try:
         payload = json.loads(match.group(1))
     except json.JSONDecodeError as e:
+        _log.warning(
+            "resume extract: JSON 解析失败: %s。matched block 前 800 字符: %r",
+            e, match.group(1)[:800],
+        )
         raise ResumeError(f"LLM 返回的 JSON 解析失败：{e}") from e
 
     extracted = payload.get("extracted_profile") or {}
     notes = str(payload.get("notes", "")).strip()
+
+    # 诊断核心：CloudBase 等模型有时会偷懒——把抽取内容全写进 notes 自由文本，
+    # extracted_profile 留成 {} 或用别名 key（profile / result / data），
+    # 导致 merge_profile 一项都填不进、画像不更新。这里把 payload 结构留下，
+    # 下次复现一眼能看出是哪种偏差。
+    if not extracted:
+        alt_keys = [k for k in payload if k not in ("notes", "extracted_profile")]
+        _log.warning(
+            "resume extract: extracted_profile 为空。payload keys=%s, "
+            "疑似替代 key=%s, notes 前 200 字符=%r",
+            list(payload.keys()), alt_keys, notes[:200],
+        )
+    else:
+        _log.info(
+            "resume extract: extracted_profile keys=%s",
+            list(extracted.keys()) if isinstance(extracted, dict) else type(extracted).__name__,
+        )
+
     if not isinstance(extracted, dict):
         raise ResumeError("LLM 返回的 extracted_profile 不是对象")
     return {"extracted": extracted, "notes": notes}
@@ -296,8 +334,15 @@ def extract_profile_from_resume(
         existing_profile = {}
 
     merged, filled, skipped = merge_profile(existing_profile, extracted)
-
     if not filled:
+        # merge 一项都没填：可能是 extracted 字段名与 schema 不匹配，
+        # 也可能是简历确实没有可补的内容。把现场留下方便区分。
+        _log.warning(
+            "resume extract: merge 一项未填（画像不会更新）。"
+            "extracted keys=%s, skipped=%s",
+            list(extracted.keys()) if isinstance(extracted, dict) else type(extracted).__name__,
+            skipped,
+        )
         return ResumeExtractResult(
             ok=True,
             reply=notes or "简历已解析，但未发现可补充的字段（可能画像已更完整）。",
