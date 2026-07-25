@@ -525,6 +525,28 @@ class Repository:
             engine.reset()
             return {"ok": True}
 
+    async def ingest_resume(self, *, filename: str, content: bytes) -> dict[str, Any]:
+        """上传简历 → 抽取 → 字段级 merge 进 profile。"""
+        async with self.with_tmpdir() as tmpdir:
+            engine = IntakeEngine(tmpdir, templates_dir=_templates_dir())
+            result = engine.ingest_resume(filename=filename, content=content)
+            status = build_intake_status(tmpdir)
+            journey = build_journey_status(tmpdir)
+            return {
+                "reply": result.reply,
+                "ok": result.ok,
+                "messages": engine.get_messages(),
+                "files_updated": result.files_updated,
+                "just_completed": result.just_completed,
+                "llm": {
+                    "provider": result.llm_provider,
+                    "model": result.llm_model,
+                    "configured": get_llm_config().configured,
+                },
+                "journey": journey.to_dict(),
+                **status,
+            }
+
     async def matrix_feedback(self) -> dict[str, Any]:
         result = await self.session.execute(
             select(MatrixFeedbackActionModel)

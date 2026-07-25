@@ -10,6 +10,7 @@ from ..pipeline import run_validation
 from .llm import LLMClient, LLMError, create_llm_client, get_llm_config
 from .preview import build_intake_status
 from .prompts import build_system_prompt
+from .resume import ResumeError, extract_profile_from_resume
 from .session import ChatMessage, IntakeSession, clear_session, load_session, save_session
 from .writer import apply_updates, bootstrap_data_dir, build_context_snapshot
 
@@ -151,6 +152,69 @@ class IntakeEngine:
             errors=errors,
             warnings=warnings,
             files_updated=files_updated,
+            intake_complete=intake_complete,
+            just_completed=just_completed,
+            gap_hints=status["gap_hints"],
+            llm_provider=cfg.provider,
+            llm_model=cfg.model,
+        )
+
+    def ingest_resume(self, *, filename: str, content: bytes) -> ChatResult:
+        """上传简历 → 解析 → 字段级 merge 进 profile。
+
+        与 chat 共享 session/validation/ChatResult 协议，前端可以把它当作
+        一条特殊的 assistant 消息处理。
+        """
+        cfg = get_llm_config()
+        bootstrap_data_dir(self.data_dir, self.templates_dir)
+
+        errors_before, _ = run_validation(self.data_dir)
+        was_complete_before = not errors_before
+
+        try:
+            result = extract_profile_from_resume(
+                data_dir=self.data_dir,
+                filename=filename,
+                content=content,
+                llm=self.llm,
+            )
+        except ResumeError as e:
+            return ChatResult(
+                reply=f"⚠️ {e}",
+                ok=False,
+                llm_provider=cfg.provider,
+                llm_model=cfg.model,
+            )
+
+        if not result.ok:
+            reply_text = f"⚠️ 简历解析失败：{result.error}"
+            return ChatResult(
+                reply=reply_text,
+                ok=False,
+                llm_provider=cfg.provider,
+                llm_model=cfg.model,
+            )
+
+        # 把简历抽取的摘要作为一条 user + assistant 消息记进 session，让后续
+        # chat 能延续上下文（LLM 知道用户已经传过简历了）
+        session = load_session(self.data_dir)
+        session.messages.append(
+            ChatMessage(role="user", content=f"（上传了简历：{filename}）")
+        )
+        session.messages.append(ChatMessage(role="assistant", content=result.reply))
+        save_session(self.data_dir, session)
+
+        errors, warnings = run_validation(self.data_dir)
+        intake_complete = not errors
+        just_completed = intake_complete and not was_complete_before
+
+        status = build_intake_status(self.data_dir)
+        return ChatResult(
+            reply=result.reply,
+            ok=True,
+            errors=errors,
+            warnings=warnings,
+            files_updated=result.files_updated,
             intake_complete=intake_complete,
             just_completed=just_completed,
             gap_hints=status["gap_hints"],

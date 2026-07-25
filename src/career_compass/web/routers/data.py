@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from career_compass.web.auth import current_active_user
@@ -48,6 +48,25 @@ async def chat_send(
 @router.post("/chat_reset")
 async def chat_reset(user: UserDep, session: SessionDep) -> dict[str, Any]:
     return await _repo_for(user, session).chat_reset()
+
+
+@router.post("/resume/upload")
+async def resume_upload(
+    user: UserDep,
+    session: SessionDep,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """上传简历（PDF / txt / md），抽取字段补全画像。
+
+    走和 chat 同一套 tmpdir → IntakeEngine → DB upsert 流程；返回结构也和
+    ``chat_send`` 对齐，前端可以用同一套渲染逻辑。
+    """
+    content = await file.read()
+    filename = file.filename or "resume.txt"
+    return await _repo_for(user, session).ingest_resume(
+        filename=filename,
+        content=content,
+    )
 
 
 @router.get("/matrix_feedback")

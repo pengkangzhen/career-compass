@@ -287,6 +287,16 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function postForm<T>(path: string, body: FormData): Promise<T> {
+  // 注意：不要手动设 Content-Type —— 浏览器会自动加 multipart boundary
+  const res = await fetchWithAuth(apiUrl(path), {
+    method: "POST",
+    body,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -397,6 +407,14 @@ export const api = {
       { message },
     ),
   chatReset: () => post<{ ok: boolean }>("/api/chat_reset"),
+  uploadResume: (file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return postForm<ChatState & { reply: string; files_updated?: string[]; just_completed?: boolean }>(
+      "/api/resume/upload",
+      form,
+    );
+  },
   runCommand: (cmd: string) => post<CommandResult>("/api/run_command", { cmd }),
   matrixFeedback: () => getJson<MatrixFeedbackResponse>("/api/matrix_feedback"),
   matrixFeedbackAdd: (
