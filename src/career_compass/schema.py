@@ -290,10 +290,11 @@ class Profile(BaseModel):
         ]
         if weak:
             missing.append(f"strength_evidence 缺证据或占位: {weak}")
-        if self.name and is_placeholder(self.name):
-            missing.append("name 仍为占位，请替换为真实姓名或标识")
-        if self.current_role and is_placeholder(self.current_role):
-            missing.append("current_role 仍为占位")
+        # name / current_role 都不作 intake 硬闸门：
+        # - name 只是称呼字段，不参与分析匹配；占位名由 intake writer 的
+        #   clear_placeholder_profile_name 自动清空。
+        # - current_role 影响匹配上下文，但缺了或为占位也不该挡住"认识自己"；
+        #   占位 current_role 作为软提示见 validate_profile_text_fields()。
         return missing
 
 
@@ -345,6 +346,11 @@ def derive_education_summary(profile: Profile) -> EducationSummary:
 def validate_profile_text_fields(profile: Profile) -> ValidationResult:
     """额外文本字段校验（warnings）。"""
     warnings: list[ValidationIssue] = []
+    if profile.current_role and is_placeholder(profile.current_role):
+        warnings.append(ValidationIssue(
+            level="warning", field="current_role",
+            message="current_role 含占位内容，填上现任角色能让方向匹配更准（不阻塞）",
+        ))
     for exp in profile.experience:
         if is_placeholder(exp.company) or is_placeholder(exp.scope):
             warnings.append(ValidationIssue(
