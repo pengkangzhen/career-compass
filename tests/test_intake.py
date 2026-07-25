@@ -48,13 +48,54 @@ def test_parse_llm_response_plain_text():
 def test_bootstrap_creates_files(tmp_path: Path):
     templates = tmp_path / "templates"
     templates.mkdir()
-    (templates / "profile.example.yaml").write_text("name: null\n", encoding="utf-8")
     (templates / "constraints.example.yaml").write_text("geo: []\n", encoding="utf-8")
     data = tmp_path / "data"
     bootstrap_data_dir(data, templates)
     assert (data / "profile.yaml").is_file()
     assert (data / "constraints.yaml").is_file()
     assert (data / "narrative.md").is_file()
+    profile_text = (data / "profile.yaml").read_text(encoding="utf-8")
+    assert "name: null" in profile_text
+    assert "示例" not in profile_text
+    assert "请替换" not in profile_text
+
+
+def test_bootstrap_clears_placeholder_name(tmp_path: Path):
+    from career_compass.intake.writer import clear_placeholder_profile_name
+
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    (templates / "constraints.example.yaml").write_text("risk_appetite: medium\n", encoding="utf-8")
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "profile.yaml").write_text(
+        'name: "Alex（示例，请替换）"\ncurrent_role: "工程师"\n',
+        encoding="utf-8",
+    )
+    assert clear_placeholder_profile_name(data / "profile.yaml") is True
+    text = (data / "profile.yaml").read_text(encoding="utf-8")
+    assert "name: null" in text
+    assert "示例" not in text
+    # 再次 bootstrap 也应清理（文件已存在）
+    (data / "profile.yaml").write_text(
+        'name: "Alex（示例，请替换）"\ncurrent_role: "工程师"\n',
+        encoding="utf-8",
+    )
+    bootstrap_data_dir(data, templates)
+    assert "name: null" in (data / "profile.yaml").read_text(encoding="utf-8")
+
+
+def test_apply_updates_strips_placeholder_name(tmp_path: Path):
+    data = tmp_path / "data"
+    data.mkdir()
+    written = apply_updates(
+        data,
+        {"profile.yaml": 'name: "Alex（示例，请替换）"\ncurrent_role: "工程师"\n'},
+    )
+    assert written == ["profile.yaml"]
+    text = (data / "profile.yaml").read_text(encoding="utf-8")
+    assert "name: null" in text
+    assert "工程师" in text
 
 
 def test_apply_updates_writes_allowed_files(tmp_path: Path):

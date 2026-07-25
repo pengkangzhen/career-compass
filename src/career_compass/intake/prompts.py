@@ -70,6 +70,7 @@ def build_system_prompt(*, templates_dir: Path, context: str) -> str:
 4. **values 由你推断** —— preferences.values_ranked 从背景信号填，不问用户排序
 5. **教育背景**：school = 院校全名；school_tier 单独填 985/211/双一流/一本/二本/海外
 6. **禁止占位符**：不要写「待填」「示例」「请替换」等占位内容
+7. **姓名优先**：用户一旦自报姓名/称呼，立刻写入 `profile.name`（可用昵称或化名）；**严禁**保留模板里的 `Alex`、`示例`、`请替换`；若尚不知如何称呼，保持 `name: null`，不要编造
 
 ## narrative.md 章节
 

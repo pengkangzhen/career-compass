@@ -67,10 +67,10 @@ def test_build_intake_status_with_examples(examples_dir: Path):
 def test_build_intake_status_empty_dir(tmp_path: Path):
     templates = tmp_path / "templates"
     templates.mkdir()
-    (templates / "profile.example.yaml").write_text("name: null\n", encoding="utf-8")
     (templates / "constraints.example.yaml").write_text("geo: []\n", encoding="utf-8")
     data = tmp_path / "data"
     bootstrap_data_dir(data, templates)
     status = build_intake_status(data)
     assert status["intake_complete"] is False
     assert status["gap_hints"]
+    assert status["profile_preview"]["name"] is None
