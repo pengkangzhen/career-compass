@@ -114,24 +114,6 @@ def build_context_snapshot(data_dir: Path) -> str:
         else:
             parts.append(f"### 当前 {name}\n（尚未创建）")
 
-    # 姓名占位是高频事故：模板示例名被原样保留
-    try:
-        profile = load_profile(data_dir / "profile.yaml")
-        if profile.name and is_placeholder(profile.name):
-            parts.append(
-                "### 紧急：profile.name 仍为占位\n"
-                f"- 当前值：{profile.name!r}\n"
-                "- 用户若已自报姓名/称呼，本轮必须立刻用用户说的内容覆盖 name，"
-                "严禁保留「Alex」「示例」「请替换」等模板字样"
-            )
-        elif not profile.name:
-            parts.append(
-                "### 提醒：profile.name 为空\n"
-                "- 用户若已自报姓名或称呼，本轮写入 profile.name（可用昵称/化名）"
-            )
-    except (ValidationError, OSError):
-        pass
-
     errors, warnings = run_validation(data_dir)
     if errors:
         parts.append("### validate 错误（必须补齐）\n" + "\n".join(f"- {e}" for e in errors))

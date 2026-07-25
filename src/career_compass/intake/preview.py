@@ -74,9 +74,6 @@ def build_intake_status(data_dir: Path) -> dict:
         except ValidationError:
             pass
 
-        except ValidationError:
-            pass
-
     if narrative_path.is_file():
         text = narrative_path.read_text(encoding="utf-8")
         preview["has_narrative"] = narrative_sections_ok(text)
