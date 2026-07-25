@@ -8,7 +8,8 @@ services:
     runtime: python
     plan: free  # 个人项目足够；用户量上来后升级 starter
     # API-only: frontend lives on Vercel; [gui] (pywebview) and SPA dist not needed.
-    buildCommand: pip install -e ".[web]" && pip install "psycopg[binary]" alembic
+    # 包含 [web, llm]：LLM 调用走 openai SDK（CloudBase 网关），否则 intake / 简历抽取会 500。
+    buildCommand: pip install -e ".[web,llm]" && pip install "psycopg[binary]" alembic
     startCommand: alembic upgrade head && uvicorn career_compass.web.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     autoDeploy: true

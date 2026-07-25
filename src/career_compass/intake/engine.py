@@ -14,6 +14,9 @@ from .resume import ResumeError, extract_profile_from_resume
 from .session import ChatMessage, IntakeSession, clear_session, load_session, save_session
 from .writer import apply_updates, bootstrap_data_dir, build_context_snapshot
 
+# 复用 chat() 已建立的 LLM 错误兜底文案
+_LLM_UNAVAILABLE_REPLY = "⚠️ LLM 暂时不可用，请稍后再试或联系管理员"
+
 WELCOME_MESSAGE = (
     "你好，我是北斗星的职业顾问。\n\n"
     "不用准备简历或填表——随便聊聊就行：你现在是什么阶段？最近在琢磨什么职业问题？"
@@ -177,6 +180,16 @@ class IntakeEngine:
                 filename=filename,
                 content=content,
                 llm=self.llm,
+            )
+        except LLMError as e:
+            # self.llm 属性访问或 LLM 调用本身失败 —— 比如生产环境未装 openai
+            # 包时，create_llm_client() 抛 LLMError，必须接住，否则会冒到
+            # FastAPI 兜底成 500（和 chat() 的处理保持一致）。
+            return ChatResult(
+                reply=f"⚠️ {e}",
+                ok=False,
+                llm_provider=cfg.provider,
+                llm_model=cfg.model,
             )
         except ResumeError as e:
             return ChatResult(
