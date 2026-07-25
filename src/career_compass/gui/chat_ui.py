@@ -180,14 +180,14 @@ function useHint(btn) {
 }
 
 function updateTabLocks(intakeComplete) {
+  // 软门禁：不再锁定 Tab，未完成时仅保留提示文案
   ['trends', 'jobs', 'matrix'].forEach(name => {
     const btn = document.getElementById('tab-' + name);
+    btn.classList.remove('locked');
     if (intakeComplete) {
-      btn.classList.remove('locked');
       btn.removeAttribute('title');
     } else {
-      btn.classList.add('locked');
-      btn.title = '请先完成「认识自己」，再查看此 Tab';
+      btn.title = '「认识自己」尚未完成，探索结果可能不够准';
     }
   });
 }
@@ -195,10 +195,8 @@ function updateTabLocks(intakeComplete) {
 function showTabSafe(name) {
   if (['trends', 'jobs', 'matrix'].includes(name)) {
     const btn = document.getElementById('tab-' + name);
-    if (btn.classList.contains('locked')) {
-      toast('请先完成「认识自己」，再继续探索');
-      showTab('chat');
-      return;
+    if (btn.getAttribute('title')) {
+      toast('「认识自己」尚未完成，探索结果可能不够准，可随时回来补全');
     }
   }
   showTab(name);
@@ -233,13 +231,13 @@ function renderChatState(state) {
   const gapsEl = document.getElementById('intakeGaps');
   const errors = (state.validation && state.validation.errors) || [];
   if (state.intake_complete) {
-    statusEl.textContent = '✅ 「认识自己」已完成，可进入「探索世界」';
+    statusEl.textContent = '✅ 「认识自己」已完成，探索会更准';
     gapsEl.innerHTML = '';
   } else if (errors.length) {
-    statusEl.textContent = '认识自己 · 待补齐 ' + errors.length + ' 项';
+    statusEl.textContent = '认识自己 · 建议补齐 ' + errors.length + ' 项（可先去探索）';
     gapsEl.innerHTML = errors.slice(0, 5).map(e => '<li>' + escapeHtml(e) + '</li>').join('');
   } else {
-    statusEl.textContent = '继续对话，完善对自己的认识';
+    statusEl.textContent = '继续对话完善画像，也可随时进入「探索世界」';
     gapsEl.innerHTML = '';
   }
   renderProfilePreview(state.profile_preview);

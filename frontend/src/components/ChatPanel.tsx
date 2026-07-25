@@ -193,10 +193,10 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
 
         <SideCard title="认识自己">
           {state.intake_complete ? (
-            <p className="text-xs text-[var(--color-ok)]">✅ 已完成，可进入「探索世界」</p>
+            <p className="text-xs text-[var(--color-ok)]">✅ 已完成，探索会更准</p>
           ) : state.validation.errors.length ? (
             <>
-              <p className="text-xs">待补齐 {state.validation.errors.length} 项</p>
+              <p className="text-xs">建议补齐 {state.validation.errors.length} 项（可先去探索）</p>
               <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--color-muted)]">
                 {state.validation.errors.slice(0, 5).map((e) => (
                   <li key={e}>· {e}</li>
@@ -204,7 +204,7 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
               </ul>
             </>
           ) : (
-            <p className="text-xs text-[var(--color-muted)]">继续对话，完善对自己的认识</p>
+            <p className="text-xs text-[var(--color-muted)]">继续对话完善画像，也可随时进入「探索世界」</p>
           )}
         </SideCard>
 
