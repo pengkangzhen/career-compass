@@ -1,4 +1,5 @@
 import type { AuthTokens } from "../api/types";
+// (AuthTokens lives in api/types; tokens.ts is a leaf — only depends on types.)
 
 const ACCESS_KEY = "beidou.access_token";
 const REFRESH_KEY = "beidou.refresh_token";

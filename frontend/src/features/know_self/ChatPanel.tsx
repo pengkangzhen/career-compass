@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type ChatState } from "../api/types";
+import { api } from "../../api/client";
+import type { ChatState } from "../../api/types";
 
 type Props = {
   onRefresh: () => Promise<void | unknown>;
@@ -179,7 +180,7 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
             type="button"
             disabled={sending || !input.trim()}
             onClick={() => send(input)}
-            className="self-end rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+            className="self-end rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-40"
           >
             发送
           </button>

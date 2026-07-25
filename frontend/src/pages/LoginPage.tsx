@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { validateEmail, validatePassword } from "./validation";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -48,34 +50,30 @@ export function LoginPage() {
   return (
     <AuthShell title="登录北斗星" subtitle="你的AI职业规划决策引擎">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
-        <Field
+        <Input
           label="邮箱"
           type="email"
           value={email}
-          onChange={setEmail}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           error={errors.email}
           autoComplete="email"
           disabled={busy}
         />
-        <Field
+        <Input
           label="密码"
           type="password"
           value={password}
-          onChange={setPassword}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="至少 8 位"
           error={errors.password}
           autoComplete="current-password"
           disabled={busy}
         />
         {errors.form && <FormError message={errors.form} />}
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" block loading={busy}>
           {busy ? "登录中…" : "登录"}
-        </button>
+        </Button>
       </form>
       <p className="mt-5 text-center text-xs text-[var(--color-muted)]">
         还没有账号？{" "}
@@ -108,48 +106,6 @@ export function AuthShell({
         {children}
       </div>
     </div>
-  );
-}
-
-export function Field({
-  label,
-  type,
-  value,
-  onChange,
-  placeholder,
-  error,
-  autoComplete,
-  disabled,
-}: {
-  label: string;
-  type: "email" | "password" | "text";
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  error?: string;
-  autoComplete?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-[var(--color-muted)]">
-        {label}
-      </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        disabled={disabled}
-        className={`w-full rounded-md border bg-[var(--color-surface)] px-3 py-2 text-sm outline-none transition focus:border-[var(--color-accent)] disabled:opacity-60 ${
-          error ? "border-[var(--color-warn)]" : "border-[var(--color-border)]"
-        }`}
-      />
-      {error && (
-        <span className="mt-1 block text-xs text-[var(--color-warn)]">{error}</span>
-      )}
-    </label>
   );
 }
 

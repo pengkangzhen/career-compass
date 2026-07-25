@@ -6,7 +6,9 @@ import {
   validatePassword,
   validatePasswordConfirm,
 } from "./validation";
-import { AuthShell, Field, FormError } from "./LoginPage";
+import { AuthShell, FormError } from "./LoginPage";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
 
 export function RegisterPage() {
   const { user, register } = useAuth();
@@ -55,44 +57,40 @@ export function RegisterPage() {
   return (
     <AuthShell title="创建北斗星账号" subtitle="注册后即可登录使用">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4" noValidate>
-        <Field
+        <Input
           label="邮箱"
           type="email"
           value={email}
-          onChange={setEmail}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           error={errors.email}
           autoComplete="email"
           disabled={busy}
         />
-        <Field
+        <Input
           label="密码"
           type="password"
           value={password}
-          onChange={setPassword}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="至少 8 位"
           error={errors.password}
           autoComplete="new-password"
           disabled={busy}
         />
-        <Field
+        <Input
           label="确认密码"
           type="password"
           value={confirm}
-          onChange={setConfirm}
+          onChange={(e) => setConfirm(e.target.value)}
           placeholder="再次输入密码"
           error={errors.confirm}
           autoComplete="new-password"
           disabled={busy}
         />
         {errors.form && <FormError message={errors.form} />}
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" block loading={busy}>
           {busy ? "注册中…" : "注册"}
-        </button>
+        </Button>
       </form>
       <p className="mt-5 text-center text-xs text-[var(--color-muted)]">
         已有账号？{" "}

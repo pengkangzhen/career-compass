@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ApiError, api, type User } from "../api/types";
+import { ApiError, api } from "../api/client";
+import type { User } from "../api/types";
 import { clearTokens, loadTokens, saveTokens } from "./tokens";
 
 type AuthContextValue = {
