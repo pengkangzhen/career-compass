@@ -135,7 +135,33 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
           <div ref={bottomRef} />
         </div>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <label
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-3 py-1.5 text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent)]/18 ${sending ? "pointer-events-none opacity-40" : ""}`}
+            title="上传简历（PDF / txt / md），自动抽取信息补全画像"
+          >
+            <span>📄 上传简历</span>
+            <span className="text-[10px] font-normal text-[var(--color-muted)]">
+              PDF / txt / md
+            </span>
+            <input
+              type="file"
+              accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
+              className="hidden"
+              disabled={sending}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                void uploadResume(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {sending && (
+            <span className="text-xs text-[var(--color-muted)]">处理中…</span>
+          )}
+        </div>
+
+        <div className="mt-2 flex gap-2">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -149,24 +175,6 @@ export function ChatPanel({ onRefresh, onIntakeComplete }: Props) {
             placeholder="随便聊聊你的背景、困惑或目标…"
             className="flex-1 resize-none rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-accent)]"
           />
-          <label
-            className={`flex cursor-pointer items-center self-end rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] ${sending ? "opacity-40" : ""}`}
-            title="上传简历（PDF / txt / md），自动抽取信息补全画像"
-          >
-            📄
-            <input
-              type="file"
-              accept=".pdf,.txt,.md,.markdown,.text,application/pdf,text/plain,text/markdown"
-              className="hidden"
-              disabled={sending}
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                void uploadResume(f);
-                // 清空，方便再次上传同一文件
-                e.target.value = "";
-              }}
-            />
-          </label>
           <button
             type="button"
             disabled={sending || !input.trim()}
