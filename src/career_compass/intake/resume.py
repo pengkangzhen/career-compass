@@ -31,6 +31,19 @@ MAX_RESUME_BYTES = 5 * 1024 * 1024
 # 接受的文件扩展名（display 用；后端按 content 判断）
 ACCEPTED_EXTS: frozenset[str] = frozenset({".pdf", ".txt", ".md", ".markdown", ".text"})
 
+# merge_profile 返回的内部字段路径 → 用户可读的中文标签。
+# 用于简历上传后的 reply 文案，避免把 ``current_role`` / ``skills.core`` 这种
+# schema key 直接抛给最终用户。
+_FIELD_LABELS: dict[str, str] = {
+    "current_role": "当前职位",
+    "education": "教育背景",
+    "experience": "工作经历",
+    "strength_evidence": "优势证据",
+    "skills.core": "核心技能",
+    "skills.adjacent": "相邻技能",
+    "skills.frontier": "前沿技能",
+}
+
 _RESUME_JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 # 模块 logger：CloudBase 等模型 JSON following 能力参差，抽取失败时把 LLM
@@ -350,16 +363,17 @@ def extract_profile_from_resume(
             skipped,
         )
         if skipped:
+            skipped_labels = "、".join(_FIELD_LABELS.get(k, k) for k in skipped)
             reply = (
                 f"📋 简历解析成功，但你的画像里这些字段已有内容，未覆盖："
-                f"{', '.join(skipped)}。\n"
+                f"{skipped_labels}。\n"
                 f"画像已经比简历更完整时，上传简历不会带来增量——"
                 f"如需用简历替换，请先在「对话」里清空对应字段，再重新上传。\n\n"
                 f"LLM 总结：{notes or '（无）'}"
             )
         else:
             reply = (
-                f"[诊断v2 · merge未填] {notes or '简历已解析，但未发现可补充的字段。'}"
+                f"📋 简历已解析，但未发现可补充的字段。{notes or ''}".rstrip()
             )
         return ResumeExtractResult(
             ok=True,
@@ -376,9 +390,11 @@ def extract_profile_from_resume(
         encoding="utf-8",
     )
 
-    summary_parts = [f"[诊断v2 · merge成功] 已从简历补充 {len(filled)} 项：{', '.join(filled)}"]
+    filled_labels = [_FIELD_LABELS.get(k, k) for k in filled]
+    summary_parts = [f"✅ 已从简历补充 {len(filled)} 项：{ '、'.join(filled_labels) }"]
     if skipped:
-        summary_parts.append(f"跳过已有内容：{', '.join(skipped)}")
+        skipped_labels = "、".join(_FIELD_LABELS.get(k, k) for k in skipped)
+        summary_parts.append(f"已有内容未覆盖：{skipped_labels}")
     summary_parts.append(
         "简历通常不含价值观排序 / 优势证据 —— 接下来聊几句补全即可。"
     )
