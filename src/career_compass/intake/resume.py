@@ -339,19 +339,31 @@ def extract_profile_from_resume(
 
     merged, filled, skipped = merge_profile(existing_profile, extracted)
     if not filled:
-        # merge 一项都没填：可能是 extracted 字段名与 schema 不匹配，
-        # 也可能是简历确实没有可补的内容。把现场留下方便区分。
+        # merge 一项都没填。两种情况要区分：
+        #   (a) skipped 非空 —— 画像里这些字段已有内容，简历没东西可补
+        #       （对已有完整画像的用户，上传简历本来就不会带来增量）
+        #   (b) skipped 为空 —— extracted 本身就是空的，LLM 只写了 notes
         _log.warning(
             "resume extract: merge 一项未填（画像不会更新）。"
             "extracted keys=%s, skipped=%s",
             list(extracted.keys()) if isinstance(extracted, dict) else type(extracted).__name__,
             skipped,
         )
+        if skipped:
+            reply = (
+                f"📋 简历解析成功，但你的画像里这些字段已有内容，未覆盖："
+                f"{', '.join(skipped)}。\n"
+                f"画像已经比简历更完整时，上传简历不会带来增量——"
+                f"如需用简历替换，请先在「对话」里清空对应字段，再重新上传。\n\n"
+                f"LLM 总结：{notes or '（无）'}"
+            )
+        else:
+            reply = (
+                f"[诊断v2 · merge未填] {notes or '简历已解析，但未发现可补充的字段。'}"
+            )
         return ResumeExtractResult(
             ok=True,
-            reply=(
-                f"[诊断v2 · merge未填] {notes or '简历已解析，但未发现可补充的字段（可能画像已更完整）。'}"
-            ),
+            reply=reply,
             extracted=extracted,
             merged_keys=filled,
             skipped_keys=skipped,
