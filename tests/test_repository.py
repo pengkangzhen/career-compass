@@ -9,6 +9,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -162,6 +163,122 @@ async def test_matrix_feedback_lifecycle(session_maker, make_user):
         # After reset, only the reset marker remains
         assert len(actions) == 1
         assert actions[0]["action"] == "reset"
+
+
+@pytest.mark.asyncio
+async def test_chat_reset_clears_db_state(session_maker, make_user):
+    """Regression: chat_reset must actually wipe DB rows.
+
+    Before the fix, ``with_tmpdir`` only tracked files that still existed
+    at the end of the request. ``engine.reset()`` deletes
+    ``intake_session.json``, so the file vanished from the diff and the
+    DB rows (``chat_session_state`` / ``chat_message``) survived —
+    the next ``chat_state`` call replayed the "deleted" conversation.
+    """
+    from career_compass.web.models import ChatMessage, ChatSessionState
+
+    user_id, factory = make_user
+
+    # Seed a conversation by writing intake_session.json through the
+    # normal repository round-trip (no LLM call needed).
+    async with session_maker() as s:
+        repo = factory(s)
+        import json
+
+        async with repo.with_tmpdir() as tmpdir:
+            session_path = tmpdir / "intake_session.json"
+            session_path.write_text(
+                json.dumps({
+                    "messages": [
+                        {"role": "user", "content": "hello"},
+                        {"role": "assistant", "content": "hi there"},
+                    ],
+                }),
+                encoding="utf-8",
+            )
+
+    # Sanity check: the seed actually wrote rows.
+    async with session_maker() as s:
+        states = (await s.execute(
+            select(ChatSessionState).where(ChatSessionState.user_id == user_id)
+        )).scalars().all()
+        msgs = (await s.execute(
+            select(ChatMessage).where(ChatMessage.user_id == user_id)
+        )).scalars().all()
+        assert len(states) == 1, "seed should create one session state row"
+        assert len(msgs) == 2, "seed should create two chat message rows"
+
+    # Reset chat.
+    async with session_maker() as s:
+        repo = factory(s)
+        result = await repo.chat_reset()
+        assert result["ok"] is True
+
+    # After reset, DB rows must be gone — otherwise the conversation
+    # reappears on the next chat_state call.
+    async with session_maker() as s:
+        states = (await s.execute(
+            select(ChatSessionState).where(ChatSessionState.user_id == user_id)
+        )).scalars().all()
+        msgs = (await s.execute(
+            select(ChatMessage).where(ChatMessage.user_id == user_id)
+        )).scalars().all()
+        assert states == [], f"chat_session_state rows survived reset: {states}"
+        assert msgs == [], f"chat_message rows survived reset: {msgs}"
+
+
+@pytest.mark.asyncio
+async def test_chat_reset_preserves_profile(session_maker, make_user):
+    """Reset must only wipe conversation history, not the profile/narrative."""
+    from career_compass.web.models import ChatSessionState, ChatMessage, Profile
+
+    user_id, factory = make_user
+
+    # Seed a profile.
+    async with session_maker() as s:
+        repo = factory(s)
+        await repo._upsert_single(Profile, {"content": {
+            "name": "测试",
+            "current_role": "工程师",
+            "education": [],
+            "experience": [],
+            "skills": {"core": [], "adjacent": [], "frontier": []},
+            "strength_evidence": [],
+            "preferences": {"values_ranked": []},
+        }})
+        await s.commit()
+
+    # Seed a chat session.
+    async with session_maker() as s:
+        repo = factory(s)
+        import json
+        async with repo.with_tmpdir() as tmpdir:
+            (tmpdir / "intake_session.json").write_text(
+                json.dumps({"messages": [
+                    {"role": "user", "content": "x"},
+                ]}),
+                encoding="utf-8",
+            )
+
+    # Reset.
+    async with session_maker() as s:
+        repo = factory(s)
+        await repo.chat_reset()
+
+    # Profile should survive.
+    async with session_maker() as s:
+        prof = await s.get(Profile, user_id)
+        assert prof is not None
+        assert prof.content.get("current_role") == "工程师"
+
+        states = (await s.execute(
+            select(ChatSessionState).where(ChatSessionState.user_id == user_id)
+        )).scalars().all()
+        assert states == []
+        msgs = (await s.execute(
+            select(ChatMessage).where(ChatMessage.user_id == user_id)
+        )).scalars().all()
+        assert msgs == []
 
 
 @pytest.mark.asyncio

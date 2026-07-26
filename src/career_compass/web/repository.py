@@ -133,6 +133,11 @@ class Repository:
 
         On exit, any files written/modified in the tmpdir are upserted back
         into the DB. Files that weren't touched are skipped.
+
+        Deletions are tracked too: if a file that existed in ``_export_into``
+        is missing at the end of the request (e.g. ``engine.reset()`` unlinks
+        ``intake_session.json``), it surfaces as a *deleted* entry so callers
+        like ``chat_reset`` can clear the corresponding DB rows.
         """
         tmpdir = Path(tempfile.mkdtemp(prefix=f"cc-{self.user_id}-"))
         try:
@@ -143,8 +148,13 @@ class Repository:
             changed = {p for p, t in mtime_after.items() if mtime_before.get(p, 0) != t}
             # New files created during the request (not in mtime_before).
             changed |= set(mtime_after) - set(mtime_before)
-            if changed:
-                await self._import_from(tmpdir, changed)
+            # Files that existed before but vanished (e.g. clear_session
+            # unlinking intake_session.json). Without this, chat_reset would
+            # silently no-op on the DB because the file is gone and never
+            # makes it into ``changed``.
+            deleted = set(mtime_before) - set(mtime_after)
+            if changed or deleted:
+                await self._import_from(tmpdir, changed, deleted)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -272,9 +282,17 @@ class Repository:
                 encoding="utf-8",
             )
 
-    async def _import_from(self, tmpdir: Path, changed: set[Path]) -> None:
-        """Upsert changed files back into DB."""
+    async def _import_from(self, tmpdir: Path, changed: set[Path], deleted: set[Path] = None) -> None:
+        """Upsert changed files back into DB; honour deletions.
+
+        ``deleted`` carries paths that existed at export time but were
+        removed during the request (e.g. ``clear_session`` unlinking
+        ``intake_session.json``). For each known file name we clear the
+        corresponding DB row so the deletion survives the next request.
+        """
+        deleted = deleted or set()
         names = {p.name for p in changed}
+        deleted_names = {p.name for p in deleted}
 
         if "profile.yaml" in names and (tmpdir / "profile.yaml").exists():
             content = _safe_yaml_load(tmpdir / "profile.yaml")
@@ -308,6 +326,11 @@ class Repository:
 
         if _SESSION_FILE in names and (tmpdir / _SESSION_FILE).exists():
             await self._upsert_chat_session(tmpdir / _SESSION_FILE)
+        elif _SESSION_FILE in deleted_names:
+            # engine.reset() cleared intake_session.json — wipe the DB
+            # state so the next chat_state call returns an empty conversation
+            # (and a fresh session_id) instead of replaying the old one.
+            await self._clear_chat_session()
 
         await self.session.commit()
 
@@ -453,6 +476,27 @@ class Repository:
                         content=content,
                     )
                 )
+
+    async def _clear_chat_session(self) -> None:
+        """Wipe the user's intake session state and chat messages.
+
+        Called when ``intake_session.json`` is deleted inside ``with_tmpdir``
+        (currently only ``chat_reset`` does this). Without it the next
+        ``chat_state`` call would re-export the old messages and the reset
+        would look like a no-op to the user.
+        """
+        states_result = await self.session.execute(
+            select(ChatSessionState).where(
+                ChatSessionState.user_id == self.user_id
+            )
+        )
+        for s in states_result.scalars().all():
+            await self.session.delete(s)
+        msgs_result = await self.session.execute(
+            select(ChatMessage).where(ChatMessage.user_id == self.user_id)
+        )
+        for m in msgs_result.scalars().all():
+            await self.session.delete(m)
 
     # ------------------------------------------------------------------
     # Public API (mirrors career_compass.gui.app.AppApi method names so the
