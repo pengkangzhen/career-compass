@@ -87,6 +87,10 @@ def extract_text(filename: str, content: bytes) -> str:
                 "PDF 未抽取到任何文本 —— 可能是扫描件或纯图片 PDF，"
                 "请改用可复制文字的 PDF，或粘贴纯文本简历"
             )
+        _log.info(
+            "resume extract: PDF 解析出 %d 字符（共 %d 页）。前 300 字符: %r",
+            len(text), len(reader.pages), text[:300],
+        )
         return text
 
     if name.endswith((".txt", ".md", ".markdown", ".text")):
@@ -345,7 +349,9 @@ def extract_profile_from_resume(
         )
         return ResumeExtractResult(
             ok=True,
-            reply=notes or "简历已解析，但未发现可补充的字段（可能画像已更完整）。",
+            reply=(
+                f"[诊断v2 · merge未填] {notes or '简历已解析，但未发现可补充的字段（可能画像已更完整）。'}"
+            ),
             extracted=extracted,
             merged_keys=filled,
             skipped_keys=skipped,
@@ -358,7 +364,7 @@ def extract_profile_from_resume(
         encoding="utf-8",
     )
 
-    summary_parts = [f"已从简历补充 {len(filled)} 项：{', '.join(filled)}"]
+    summary_parts = [f"[诊断v2 · merge成功] 已从简历补充 {len(filled)} 项：{', '.join(filled)}"]
     if skipped:
         summary_parts.append(f"跳过已有内容：{', '.join(skipped)}")
     summary_parts.append(
